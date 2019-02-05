@@ -27,7 +27,10 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     description="File System Backend for Dogpile Cache",
-    install_requires=['dogpile.cache'],
+    install_requires=[
+        'dogpile.cache',
+        'six',
+    ],
     license="MIT license",
     long_description=readme + '\n\n' + history,
     include_package_data=True,
