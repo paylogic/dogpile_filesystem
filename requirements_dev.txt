@@ -1,0 +1,7 @@
+bumpversion
+wheel
+flake8
+tox
+twine
+
+pytest
