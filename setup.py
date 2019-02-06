@@ -34,16 +34,16 @@ setup(
     license="MIT license",
     long_description=readme + '\n\n' + history,
     include_package_data=True,
-    keywords='dogpile_cache_file_system_backend',
-    name='dogpile_cache_file_system_backend',
-    packages=find_packages(include=['dogpile_cache_file_system_backend']),
+    keywords='dogpile_cache_fs_backend',
+    name='dogpile_cache_fs_backend',
+    packages=find_packages(include=['dogpile_cache_fs_backend']),
     test_suite='tests',
-    url='https://github.com/youtux/dogpile_cache_file_system_backend',
+    url='https://github.com/youtux/dogpile_cache_fs_backend',
     version='0.1.0',
     zip_safe=False,
     entry_points={
         'dogpile.cache': [
-            'file_system_backend = dogpile_cache_file_system_backend.fs_backend:FileSystemBackend',
+            'paylogic.fs_backend = dogpile_cache_fs_backend.backend:FSBackend',
         ]
     },
 )

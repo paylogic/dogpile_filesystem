@@ -25,5 +25,5 @@ deploy:
     secure: PLEASE_REPLACE_ME
   on:
     tags: true
-    repo: youtux/dogpile_cache_file_system_backend
+    repo: youtux/dogpile_cache_fs_backend
     python: 3.6
