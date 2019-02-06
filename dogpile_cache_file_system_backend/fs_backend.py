@@ -16,7 +16,10 @@ import os
 import pickle
 import sys
 import tempfile
-import threading
+if sys.version < (3, 3):
+    from thread import get_ident
+else:
+    from threading import get_ident
 from shutil import copyfileobj
 
 import pytz  # TODO: Remove this dependency
@@ -377,7 +380,9 @@ class RangedFileLock(AbstractFileLock):
 
 
 class ReentrantLockWrapper(object):
-    def __init__(self, lock, ident_func=threading.get_ident):
+    # TODO: get_ident may recycle thread IDs, possibly allowing another thread to acquire a mutex owned by a
+    #  dead one. But maybe that's for good.
+    def __init__(self, lock, ident_func=get_ident):
         self._block = lock
         self._owner = None
         self._count = 0
