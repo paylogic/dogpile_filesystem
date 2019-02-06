@@ -16,6 +16,7 @@ import os
 import pickle
 import sys
 import tempfile
+import threading
 from shutil import copyfileobj
 
 import pytz  # TODO: Remove this dependency
@@ -144,7 +145,7 @@ class FilesBackend(CacheBackend):
         return RangedFileLock(self.rw_lock_path, key)
 
     def _get_dogpile_lock(self, key):
-        return RangedFileLock(self.dogpile_lock_path, key)
+        return ReentrantLockWrapper(RangedFileLock(self.dogpile_lock_path, key))
 
     def get_mutex(self, key):
         if self.distributed_lock:
@@ -373,3 +374,70 @@ class RangedFileLock(AbstractFileLock):
         else:
             self._module.lockf(self._filedescriptor, self._module.LOCK_UN)
         os.close(self._filedescriptor)
+
+
+class ReentrantLockWrapper(object):
+    def __init__(self, lock, ident_func=threading.get_ident):
+        self._block = lock
+        self._owner = None
+        self._count = 0
+        self._ident_func = ident_func
+
+    def acquire(self, blocking=1):
+        """Acquire a lock, blocking or non-blocking.
+
+        When invoked without arguments: if this thread already owns the lock,
+        increment the recursion level by one, and return immediately. Otherwise,
+        if another thread owns the lock, block until the lock is unlocked. Once
+        the lock is unlocked (not owned by any thread), then grab ownership, set
+        the recursion level to one, and return. If more than one thread is
+        blocked waiting until the lock is unlocked, only one at a time will be
+        able to grab ownership of the lock. There is no return value in this
+        case.
+
+        When invoked with the blocking argument set to true, do the same thing
+        as when called without arguments, and return true.
+
+        When invoked with the blocking argument set to false, do not block. If a
+        call without an argument would block, return false immediately;
+        otherwise, do the same thing as when called without arguments, and
+        return true.
+
+        """
+        me = self._ident_func()
+        if self._owner == me:
+            self._count = self._count + 1
+            return 1
+        rc = self._block.acquire(blocking)
+        if rc:
+            self._owner = me
+            self._count = 1
+        return rc
+
+    __enter__ = acquire
+
+    def release(self):
+        """Release a lock, decrementing the recursion level.
+
+        If after the decrement it is zero, reset the lock to unlocked (not owned
+        by any thread), and if any other threads are blocked waiting for the
+        lock to become unlocked, allow exactly one of them to proceed. If after
+        the decrement the recursion level is still nonzero, the lock remains
+        locked and owned by the calling thread.
+
+        Only call this method when the calling thread owns the lock. A
+        RuntimeError is raised if this method is called when the lock is
+        unlocked.
+
+        There is no return value.
+
+        """
+        if self._owner != self._ident_func():
+            raise RuntimeError("cannot release un-acquired lock")
+        self._count = count = self._count - 1
+        if not count:
+            self._owner = None
+            self._block.release()
+
+    def __exit__(self, t, v, tb):
+        self.release()
