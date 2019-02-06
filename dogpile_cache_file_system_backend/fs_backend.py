@@ -26,7 +26,7 @@ from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 from dogpile.cache import util
 from dogpile.cache.backends.file import AbstractFileLock
 
-__all__ = 'FilesBackend', 'RangedFileLock'
+__all__ = 'FileSystemBackend', 'RangedFileLock'
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ def sha256_mangler(key):
     return hashlib.sha256(key).hexdigest()
 
 
-class FilesBackend(CacheBackend):
+class FileSystemBackend(CacheBackend):
     """A file-backend using files to store keys.
 
     Basic usage::
