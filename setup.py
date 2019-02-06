@@ -41,4 +41,9 @@ setup(
     url='https://github.com/youtux/dogpile_cache_file_system_backend',
     version='0.1.0',
     zip_safe=False,
+    entry_points={
+        'dogpile.cache': [
+            'file_system_backend = dogpile_cache_file_system_backend.fs_backend:FileSystemBackend',
+        ]
+    },
 )
