@@ -1,3 +1,4 @@
+import multiprocessing
 import threading
 
 import pytest
@@ -29,8 +30,23 @@ def test_normal_usage(region):
 
     assert side_effect == [1]
 
+def test_recursive_usage(region):
+    side_effect = []
+    context = {'calls': 0}
 
-def test_dogpile_lock(region):
+    @region.cache_on_arguments()
+    def fn(arg):
+        context['calls']
+        side_effect.append(arg)
+        return arg + 1
+
+    assert fn(1) == 2
+    assert fn(1) == 2
+
+    assert side_effect == [1]
+
+
+def test_dogpile_lock_threaded(region):
     mutex = region.backend.get_mutex('asd')
 
     mutex.acquire()
@@ -40,7 +56,9 @@ def test_dogpile_lock(region):
 
     thread_result = []
     def other_thread():
-        thread_result.append(mutex.acquire(blocking=False))
+        o_mutex = region.backend.get_mutex('asd')
+        assert o_mutex is mutex
+        thread_result.append(o_mutex.acquire(False))
 
     t = threading.Thread(target=other_thread)
     t.start()
@@ -50,5 +68,28 @@ def test_dogpile_lock(region):
 
     try:
         assert other_thread_acquired_mutex is False
+    finally:
+        mutex.release()
+
+def test_dogpile_lock_processes(region):
+    mutex = region.backend.get_mutex('asd')
+
+    mutex.acquire()
+    mutex.acquire()
+
+    mutex.release()
+
+    proc_result = multiprocessing.Value('d', 42)
+    assert proc_result.value == 42
+    def other_process():
+        o_mutex = region.backend.get_mutex('asd')
+        proc_result.value = o_mutex.acquire(False)
+
+    t = multiprocessing.Process(target=other_process)
+    t.start()
+    t.join()
+
+    try:
+        assert proc_result.value == 0
     finally:
         mutex.release()

@@ -6,82 +6,42 @@ Provides backends that deal with local filesystem access.
 
 """
 
-import codecs
 import datetime
-import errno
 import hashlib
 import io
 import logging
 import os
 import pickle
-import sys
 import tempfile
-if sys.version < (3, 3):
-    from thread import get_ident
-else:
-    from threading import get_ident
+
 from shutil import copyfileobj
 
 import pytz  # TODO: Remove this dependency
-import six
 
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
-from dogpile.cache import util
-from dogpile.cache.backends.file import AbstractFileLock
 
-__all__ = 'FSBackend', 'RangedFileLock'
+from dogpile_cache_fs_backend.locking import ProcessLocalRegistry, RangedFileReentrantLock
+from dogpile_cache_fs_backend.utils import _remove, _ensure_dir, _stat, _get_size, _get_last_modified, without_suffixes, \
+    _key_to_offset
+
+__all__ = 'FSBackend',
 
 logger = logging.getLogger(__name__)
 
 
-def _remove(file_path):
-    try:
-        os.remove(file_path)
-    except (IOError, OSError):
-        logger.exception('Cannot remove file {}'.format(file_path))
+def _lock_file_creator(path):
+    return io.open(path, 'w+b')
 
 
-def _ensure_dir(path):
-    try:
-        os.makedirs(path)
-    except OSError as error:
-        if error.errno != errno.EEXIST:
-            raise
-    except (OSError, IOError):
-        logger.exception('Cannot create directory {}'.format(path))
+file_lock_registry = ProcessLocalRegistry(_lock_file_creator)
 
 
-def _stat(file_path):
-    try:
-        return os.stat(file_path)
-    except (IOError, OSError):
-        logger.exception('Cannot stat file {}'.format(file_path))
-        return None
+def _lock_creator(path, offset):
+    file = file_lock_registry.get(path)
+    return RangedFileReentrantLock(file, offset)
 
 
-def _get_size(stat):
-    if stat is None:
-        return 0
-    return stat.st_size
-
-
-def _get_last_modified(stat):
-    if stat is None:
-        return datetime.datetime.fromtimestamp(0, tz=pytz.utc)
-    return datetime.datetime.fromtimestamp(stat.st_mtime, pytz.utc)
-
-
-def without_suffixes(string, suffixes):
-    for suffix in suffixes:
-        if string.endswith(suffix):
-            return string[:-len(suffix)]
-    return string
-
-
-def sha256_mangler(key):
-    if isinstance(key, six.text_type):
-        key = key.encode('utf-8')
-    return hashlib.sha256(key).hexdigest()
+locks_registry = ProcessLocalRegistry(_lock_creator)
 
 
 class FSBackend(CacheBackend):
@@ -145,10 +105,10 @@ class FSBackend(CacheBackend):
         self.distributed_lock = arguments.get('distributed_lock', True)
 
     def _get_rw_lock(self, key):
-        return RangedFileLock(self.rw_lock_path, key)
+        return locks_registry.get(self.rw_lock_path, _key_to_offset(key))
 
     def _get_dogpile_lock(self, key):
-        return ReentrantLockWrapper(RangedFileLock(self.dogpile_lock_path, key))
+        return locks_registry.get(self.dogpile_lock_path, _key_to_offset(key))
 
     def get_mutex(self, key):
         if self.distributed_lock:
@@ -175,7 +135,7 @@ class FSBackend(CacheBackend):
         file_path_payload = self._file_path_payload(key)
         file_path_metadata = self._file_path_metadata(key)
         file_path_type = self._file_path_type(key)
-        with self._get_rw_lock(key).read():
+        with self._get_rw_lock(key):
             if not os.path.exists(file_path_payload) or not os.path.exists(file_path_metadata) \
                 or not os.path.exists(file_path_type):
                 return NO_VALUE
@@ -233,7 +193,7 @@ class FSBackend(CacheBackend):
         with tempfile.NamedTemporaryFile(delete=False) as type_file:
             pickle.dump(type, type_file, pickle.HIGHEST_PROTOCOL)
 
-        with self._get_rw_lock(key).write():
+        with self._get_rw_lock(key):
             os.rename(metadata_file.name, self._file_path_metadata(key))
             os.rename(type_file.name, self._file_path_type(key))
             os.rename(payload_file_path, self._file_path_payload(key))
@@ -243,7 +203,7 @@ class FSBackend(CacheBackend):
             self.set(key, value)
 
     def delete(self, key):
-        with self._get_rw_lock(key).write():
+        with self._get_rw_lock(key):
             self._delete_key_files(key)
 
     def delete_multi(self, keys):
@@ -283,7 +243,7 @@ class FSBackend(CacheBackend):
 
     def attempt_delete_key(self, key):
         rw_lock = self._get_rw_lock(key)
-        if rw_lock.acquire_write_lock(wait=False):
+        if rw_lock.acquire(blocking=False):
             try:
                 self._delete_key_files(key)
             finally:
@@ -312,137 +272,3 @@ class FSBackend(CacheBackend):
                 break
             key = keys_by_newest.pop()
             self.attempt_delete_key(key)
-
-
-def _key_to_offset(key, max=sys.maxint):
-    # Map any string to randomly distributed integers between 0 and max
-    hash = hashlib.sha1(key.encode('utf-8')).digest()
-    return int(codecs.encode(hash, 'hex'), 16) % max
-
-
-class RangedFileLock(AbstractFileLock):
-    def __init__(self, path, key=None):
-        if key is None:
-            self.key_offset = None
-        else:
-            self.key_offset = _key_to_offset(key)
-        self._filedescriptor = None
-        self.path = path
-
-    @util.memoized_property
-    def _module(self):
-        import fcntl
-        return fcntl
-
-    def acquire_read_lock(self, wait):
-        return self._acquire(wait, os.O_RDONLY, self._module.LOCK_SH)
-
-    def acquire_write_lock(self, wait):
-        return self._acquire(wait, os.O_WRONLY, self._module.LOCK_EX)
-
-    def release_read_lock(self):
-        self._release()
-
-    def release_write_lock(self):
-        self._release()
-
-    def _acquire(self, wait, wrflag, lockflag):
-        wrflag |= os.O_CREAT
-        fileno = os.open(self.path, wrflag)
-        try:
-            if not wait:
-                lockflag |= self._module.LOCK_NB
-            if self.key_offset is not None:
-                self._module.lockf(fileno, lockflag, 1, self.key_offset)
-            else:
-                self._module.lockf(fileno, lockflag)
-        except IOError:
-            os.close(fileno)
-            if not wait:
-                # this is typically
-                # "[Errno 35] Resource temporarily unavailable",
-                # because of LOCK_NB
-                return False
-            else:
-                raise
-        else:
-            self._filedescriptor = fileno
-            return True
-
-    def _release(self):
-        if self._filedescriptor is None:
-            return
-        if self.key_offset is not None:
-            self._module.lockf(self._filedescriptor, self._module.LOCK_UN, 1, self.key_offset)
-        else:
-            self._module.lockf(self._filedescriptor, self._module.LOCK_UN)
-        os.close(self._filedescriptor)
-
-
-class ReentrantLockWrapper(object):
-    # TODO: get_ident may recycle thread IDs, possibly allowing another thread to acquire a mutex owned by a
-    #  dead one. But maybe that's for good.
-    def __init__(self, lock, ident_func=get_ident):
-        self._block = lock
-        self._owner = None
-        self._count = 0
-        self._ident_func = ident_func
-
-    def acquire(self, blocking=1):
-        """Acquire a lock, blocking or non-blocking.
-
-        When invoked without arguments: if this thread already owns the lock,
-        increment the recursion level by one, and return immediately. Otherwise,
-        if another thread owns the lock, block until the lock is unlocked. Once
-        the lock is unlocked (not owned by any thread), then grab ownership, set
-        the recursion level to one, and return. If more than one thread is
-        blocked waiting until the lock is unlocked, only one at a time will be
-        able to grab ownership of the lock. There is no return value in this
-        case.
-
-        When invoked with the blocking argument set to true, do the same thing
-        as when called without arguments, and return true.
-
-        When invoked with the blocking argument set to false, do not block. If a
-        call without an argument would block, return false immediately;
-        otherwise, do the same thing as when called without arguments, and
-        return true.
-
-        """
-        me = self._ident_func()
-        if self._owner == me:
-            self._count = self._count + 1
-            return 1
-        rc = self._block.acquire(blocking)
-        if rc:
-            self._owner = me
-            self._count = 1
-        return rc
-
-    __enter__ = acquire
-
-    def release(self):
-        """Release a lock, decrementing the recursion level.
-
-        If after the decrement it is zero, reset the lock to unlocked (not owned
-        by any thread), and if any other threads are blocked waiting for the
-        lock to become unlocked, allow exactly one of them to proceed. If after
-        the decrement the recursion level is still nonzero, the lock remains
-        locked and owned by the calling thread.
-
-        Only call this method when the calling thread owns the lock. A
-        RuntimeError is raised if this method is called when the lock is
-        unlocked.
-
-        There is no return value.
-
-        """
-        if self._owner != self._ident_func():
-            raise RuntimeError("cannot release un-acquired lock")
-        self._count = count = self._count - 1
-        if not count:
-            self._owner = None
-            self._block.release()
-
-    def __exit__(self, t, v, tb):
-        self.release()
