@@ -31,19 +31,18 @@ def test_normal_usage(region):
     assert side_effect == [1]
 
 def test_recursive_usage(region):
-    side_effect = []
-    context = {'calls': 0}
+    context = {'value': 3}
 
     @region.cache_on_arguments()
-    def fn(arg):
-        context['calls']
-        side_effect.append(arg)
-        return arg + 1
+    def fn():
+        if context['value'] == 0:
+            return 42
+        context['value'] -= 1
+        return fn()
 
-    assert fn(1) == 2
-    assert fn(1) == 2
+    assert fn() == 42
+    assert context['value'] == 0
 
-    assert side_effect == [1]
 
 
 def test_dogpile_lock_threaded(region):
