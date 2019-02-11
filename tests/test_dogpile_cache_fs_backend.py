@@ -1,8 +1,12 @@
+import errno
 import multiprocessing
 import threading
 
 import pytest
 import dogpile.cache
+
+from dogpile_cache_fs_backend import registry
+
 
 @pytest.fixture
 def region(tmpdir):
@@ -104,3 +108,43 @@ def test_locks_are_released_on_dereference(region):
     assert not mutex.is_locked()
     del mutex
     pass
+
+
+@pytest.mark.parametrize('n_locks', [1, 2, 1000])
+@pytest.mark.parametrize('n_files', [1, 2, 10])
+def test_can_acquire_n_locks(tmpdir, n_locks, n_files):
+    lockset = []
+    for file_i in range(n_files):
+        lock_file_path = str(tmpdir / 'lock_' + file_i)
+        for i in range(n_locks):
+            lock = registry.locks.get((lock_file_path, i))
+            lock.acquire()
+            lockset += [lock]
+
+
+def test_deadlock_raises(region):
+    mutex_1 = region.backend.get_mutex('1')
+    mutex_2 = region.backend.get_mutex('2')
+
+    mutex_1.acquire()
+
+    def other_process():
+        mutex_process_1 = region.backend.get_mutex('1')
+        mutex_process_2 = region.backend.get_mutex('2')
+
+        mutex_process_2.acquire()
+        mutex_process_1.acquire()  # BOOM
+
+    p = multiprocessing.Process(target=other_process)
+    p.start()
+    import time
+    time.sleep(1)
+    try:
+        with pytest.raises(OSError) as excinfo:
+            mutex_2.acquire()
+        assert excinfo.value.errno == errno.EDEADLK
+    finally:
+        mutex_1.release()
+        p.join()
+
+
