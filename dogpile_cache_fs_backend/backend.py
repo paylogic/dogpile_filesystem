@@ -148,7 +148,7 @@ class FSBackend(CacheBackend):
         return [self.get(key) for key in keys]
 
     def set(self, key, value):
-        self._prune()
+        self.prune()
         if isinstance(value, CachedValue):
             payload, metadata = value.payload, value.metadata
         else:
@@ -170,6 +170,7 @@ class FSBackend(CacheBackend):
 
                 with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
                     copyfileobj(payload, tmpfile, length=1024 * 1024)
+                # TODO: seek to the original cursor
                 payload_file_path = tmpfile.name
 
         with tempfile.NamedTemporaryFile(delete=False) as type_file:
@@ -195,6 +196,7 @@ class FSBackend(CacheBackend):
     def _delete_key_files(self, key):
         _remove(self._file_path_payload(key))
         _remove(self._file_path_metadata(key))
+        _remove(self._file_path_type(key))
 
     def _list_keys_with_desc(self):
         suffixes = ['.payload', '.metadata', '.type']
@@ -229,9 +231,9 @@ class FSBackend(CacheBackend):
             try:
                 self._delete_key_files(key)
             finally:
-                rw_lock.release_write_lock()
+                rw_lock.release()
 
-    def _prune(self):
+    def prune(self):
         now = datetime.datetime.now(tz=pytz.utc)
         keys_with_desc = self._list_keys_with_desc()
         keys = set(keys_with_desc)
@@ -249,7 +251,7 @@ class FSBackend(CacheBackend):
             key=lambda key: keys_with_desc[key]['last_modified'],
             reverse=True,
         )
-        while sum((keys_with_desc[key]['size'] for key in remaining_keys), 0) > self.cache_size:
+        while sum((keys_with_desc[key]['size'] for key in keys_by_newest), 0) > self.cache_size:
             if not keys_by_newest:
                 break
             key = keys_by_newest.pop()
