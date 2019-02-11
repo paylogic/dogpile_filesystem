@@ -148,3 +148,17 @@ def test_deadlock_raises(region):
         p.join()
 
 
+def test_mutex_cannot_be_shared_between_processes(region):
+    def other_process():
+        mutex = region.backend.get_mutex('foo')
+        mutex.acquire()
+    p = multiprocessing.Process(target=other_process)
+    p.start()
+    import time
+    time.sleep(1)
+    try:
+        with pytest.raises(RuntimeError):
+            mutex = region.backend.get_mutex('foo')
+            mutex.acquire()
+    finally:
+        p.join()
