@@ -1,5 +1,6 @@
 import errno
 import logging
+import os
 import threading
 
 from dogpile.cache import util
@@ -15,6 +16,7 @@ class RangedFileReentrantLock(object):
         self._file = file_
         self._thread_lock = threading.RLock()
         self._counter = 0
+        self._pid = os.getpid()
 
     def is_locked(self):
         return self._counter > 0
@@ -24,7 +26,12 @@ class RangedFileReentrantLock(object):
         import fcntl
         return fcntl
 
+    def _assert_pid(self):
+        if os.getpid() != self._pid:
+            raise RuntimeError('Cannot use this lock, since it was created by a different process.')
+
     def acquire(self, blocking=True):
+        self._assert_pid()
         lockflag = self._module.LOCK_EX
         if not blocking:
             lockflag |= self._module.LOCK_NB
@@ -34,15 +41,15 @@ class RangedFileReentrantLock(object):
 
         if self._counter == 0:
             try:
-                logger.debug('lockf({}, blocking={}, offset={})'.format(
-                    getattr(self._file, 'name', self._file), blocking, self._offset
+                logger.debug('lockf({}, pid={}, blocking={}, offset={})'.format(
+                    getattr(self._file, 'name', self._file), self._pid, blocking, self._offset
                 ))
                 if self._offset is not None:
                     self._module.lockf(self._file, lockflag, 1, self._offset)
                 else:
                     self._module.lockf(self._file, lockflag)
-                logger.debug('! lockf({}, blocking={}, offset={})'.format(
-                    getattr(self._file, 'name', self._file), blocking, self._offset
+                logger.debug('! lockf({}, pid={}, blocking={}, offset={})'.format(
+                    getattr(self._file, 'name', self._file), self._pid, blocking, self._offset
                 ))
             except IOError as e:
                 self._thread_lock.release()
@@ -54,6 +61,7 @@ class RangedFileReentrantLock(object):
         return True
 
     def release(self):
+        self._assert_pid()
         self._counter -= 1
         assert self._counter >= 0
         if self._counter > 0:
