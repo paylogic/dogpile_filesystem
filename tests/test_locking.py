@@ -79,45 +79,6 @@ def test_can_acquire_n_locks(tmpdir, n_locks, n_files):
             lock = registry.locks.get((lock_file_path, i))
             lock.acquire()
             lockset += [lock]
+    for lock in lockset:
+        lock.release()
 
-
-def test_deadlock_raises(region):
-    mutex_1 = region.backend.get_mutex('1')
-    mutex_2 = region.backend.get_mutex('2')
-
-    mutex_1.acquire()
-
-    def other_process():
-        mutex_process_1 = region.backend.get_mutex('1')
-        mutex_process_2 = region.backend.get_mutex('2')
-
-        mutex_process_2.acquire()
-        mutex_process_1.acquire()  # BOOM
-
-    p = multiprocessing.Process(target=other_process)
-    p.start()
-    import time
-    time.sleep(1)
-    try:
-        with pytest.raises(OSError) as excinfo:
-            mutex_2.acquire()
-        assert excinfo.value.errno == errno.EDEADLK
-    finally:
-        mutex_1.release()
-        p.join()
-
-
-def test_mutex_cannot_be_shared_between_processes(region):
-    def other_process():
-        mutex = region.backend.get_mutex('foo')
-        mutex.acquire()
-    p = multiprocessing.Process(target=other_process)
-    p.start()
-    import time
-    time.sleep(1)
-    try:
-        with pytest.raises(RuntimeError):
-            mutex = region.backend.get_mutex('foo')
-            mutex.acquire()
-    finally:
-        p.join()
