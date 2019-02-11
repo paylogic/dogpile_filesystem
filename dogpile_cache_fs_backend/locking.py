@@ -41,16 +41,14 @@ class RangedFileReentrantLock(object):
 
         if self._counter == 0:
             try:
-                logger.debug('lockf({}, pid={}, blocking={}, offset={})'.format(
-                    getattr(self._file, 'name', self._file), self._pid, blocking, self._offset
-                ))
+                logger.debug('lockf({self._file.name}, pid={self._pid}, blocking={blocking}, '
+                             'offset={self._offset})'.format(self=self, blocking=blocking))
                 if self._offset is not None:
                     self._module.lockf(self._file, lockflag, 1, self._offset)
                 else:
                     self._module.lockf(self._file, lockflag)
-                logger.debug('! lockf({}, pid={}, blocking={}, offset={})'.format(
-                    getattr(self._file, 'name', self._file), self._pid, blocking, self._offset
-                ))
+                logger.debug('!lockf({self._file.name}, pid={self._pid}, blocking={blocking}, '
+                             'offset={self._offset})'.format(self=self, blocking=blocking))
             except IOError as e:
                 self._thread_lock.release()
                 if e.errno in (errno.EACCES, errno.EAGAIN):
