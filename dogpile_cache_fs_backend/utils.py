@@ -2,22 +2,20 @@ import codecs
 import datetime
 import errno
 import hashlib
-import logging
 import os
 import sys
+import warnings
 
 import pytz
 import six
 from dogpile.util import NameRegistry
-
-logger = logging.getLogger(__name__)
 
 
 def _remove(file_path):
     try:
         os.remove(file_path)
     except (IOError, OSError):
-        logger.exception('Cannot remove file {}'.format(file_path))
+        warnings.warn('Cannot remove file {}'.format(file_path))
 
 
 def _ensure_dir(path):
@@ -27,14 +25,14 @@ def _ensure_dir(path):
         if error.errno != errno.EEXIST:
             raise
     except (OSError, IOError):
-        logger.exception('Cannot create directory {}'.format(path))
+        warnings.warn('Cannot create directory {}'.format(path))
 
 
 def _stat(file_path):
     try:
         return os.stat(file_path)
     except (IOError, OSError):
-        logger.exception('Cannot stat file {}'.format(file_path))
+        warnings.warn('Cannot stat file {}'.format(file_path))
         return None
 
 
