@@ -8,6 +8,7 @@ import sys
 
 import pytz
 import six
+from dogpile.util import NameRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,28 @@ def sha256_mangler(key):
     return hashlib.sha256(key).hexdigest()
 
 
-def _key_to_offset(key, max=sys.maxint):
+def _key_to_offset(key, start=0, end=sys.maxsize):
     # Map any string to randomly distributed integers between 0 and max
-    hash = hashlib.sha1(key.encode('utf-8')).digest()
-    return int(codecs.encode(hash, 'hex'), 16) % max
+    hash_ = hashlib.sha1(key.encode('utf-8')).digest()
+    offset_from_0 = (int(codecs.encode(hash_, 'hex'), 16) % (end - start))
+    return start + offset_from_0
+
+
+class ProcessLocalRegistry(object):
+    """
+    Provides a basic per-process mapping container that wipes itself if the current PID changed since the last get/set.
+    Aka `threading.local()`, but for processes instead of threads.
+    """
+
+    def __init__(self, creator):
+        super(ProcessLocalRegistry, self).__init__()
+        self._pid = None
+        self.creator = creator
+        self.registry = None
+
+    def get(self, identifier, *args, **kwargs):
+        current_pid = os.getpid()
+        # TODO: Make this thread safe
+        if self._pid != current_pid:
+            self._pid, self.registry = current_pid, NameRegistry(creator=self.creator)
+        return self.registry.get(identifier, *args, **kwargs)

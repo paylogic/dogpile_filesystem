@@ -4,7 +4,6 @@ import threading
 import pytest
 import dogpile.cache
 
-
 @pytest.fixture
 def region(tmpdir):
     r = dogpile.cache.make_region('test_region')
@@ -30,6 +29,7 @@ def test_normal_usage(region):
 
     assert side_effect == [1]
 
+
 def test_recursive_usage(region):
     context = {'value': 3}
 
@@ -44,7 +44,6 @@ def test_recursive_usage(region):
     assert context['value'] == 0
 
 
-
 def test_dogpile_lock_threaded(region):
     mutex = region.backend.get_mutex('asd')
 
@@ -56,19 +55,22 @@ def test_dogpile_lock_threaded(region):
     thread_result = []
     def other_thread():
         o_mutex = region.backend.get_mutex('asd')
-        assert o_mutex is mutex
-        thread_result.append(o_mutex.acquire(False))
+        assert o_mutex is mutex  # TODO: This should be a different test
+        acquired = o_mutex.acquire(False)
+        if acquired:
+            o_mutex.release()
+        thread_result.append(acquired)
 
     t = threading.Thread(target=other_thread)
     t.start()
     t.join()
 
-    [other_thread_acquired_mutex] = thread_result
-
     try:
+        [other_thread_acquired_mutex] = thread_result
         assert other_thread_acquired_mutex is False
     finally:
         mutex.release()
+
 
 def test_dogpile_lock_processes(region):
     mutex = region.backend.get_mutex('asd')
@@ -88,7 +90,17 @@ def test_dogpile_lock_processes(region):
     t.start()
     t.join()
 
-    try:
-        assert proc_result.value == 0
-    finally:
-        mutex.release()
+    mutex.release()
+    assert proc_result.value == 0
+    assert not mutex.is_locked()
+
+
+def test_locks_are_released_on_dereference(region):
+    mutex = region.backend.get_mutex('asd')
+    mutex.acquire()
+    del mutex
+
+    mutex = region.backend.get_mutex('asd')
+    assert not mutex.is_locked()
+    del mutex
+    pass

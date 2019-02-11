@@ -5,11 +5,9 @@ File Backends
 Provides backends that deal with local filesystem access.
 
 """
-
 import datetime
 import hashlib
 import io
-import logging
 import os
 import pickle
 import tempfile
@@ -20,28 +18,10 @@ import pytz  # TODO: Remove this dependency
 
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 
-from dogpile_cache_fs_backend.locking import ProcessLocalRegistry, RangedFileReentrantLock
-from dogpile_cache_fs_backend.utils import _remove, _ensure_dir, _stat, _get_size, _get_last_modified, without_suffixes, \
-    _key_to_offset
+from . import registry
+from .utils import _remove, _ensure_dir, _stat, _get_size, _get_last_modified, without_suffixes, _key_to_offset
 
-__all__ = 'FSBackend',
-
-logger = logging.getLogger(__name__)
-
-
-def _lock_file_creator(path):
-    return io.open(path, 'w+b')
-
-
-file_lock_registry = ProcessLocalRegistry(_lock_file_creator)
-
-
-def _lock_creator(path, offset):
-    file = file_lock_registry.get(path)
-    return RangedFileReentrantLock(file, offset)
-
-
-locks_registry = ProcessLocalRegistry(_lock_creator)
+__all__ = ['FSBackend']
 
 
 class FSBackend(CacheBackend):
@@ -105,10 +85,12 @@ class FSBackend(CacheBackend):
         self.distributed_lock = arguments.get('distributed_lock', True)
 
     def _get_rw_lock(self, key):
-        return locks_registry.get(self.rw_lock_path, _key_to_offset(key))
+        identifier = (self.rw_lock_path, _key_to_offset(key))
+        return registry.locks.get(identifier)
 
     def _get_dogpile_lock(self, key):
-        return locks_registry.get(self.dogpile_lock_path, _key_to_offset(key))
+        identifier = (self.dogpile_lock_path, _key_to_offset(key))
+        return registry.locks.get(identifier)
 
     def get_mutex(self, key):
         if self.distributed_lock:
