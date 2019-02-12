@@ -95,11 +95,6 @@ class FSBackend(CacheBackend):
     def get_mutex(self, key):
         if self.distributed_lock:
             return self._get_dogpile_lock(key)
-
-            # # We need to hash the key, as it may not have used our key mangler
-            # hash = hashlib.sha256(key.encode('utf-8')).hexdigest()
-            # partition_key = hash[:self.dogpile_lock_partition_size * 2]
-            # return FileLock(os.path.join(self.base_dir, 'dogpile_locks', partition_key))
         else:
             return None
 
@@ -251,6 +246,8 @@ class FSBackend(CacheBackend):
             key=lambda key: keys_with_desc[key]['last_modified'],
             reverse=True,
         )
+        if self.cache_size is None:
+            return
         while sum((keys_with_desc[key]['size'] for key in keys_by_newest), 0) > self.cache_size:
             if not keys_by_newest:
                 break
