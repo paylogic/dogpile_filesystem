@@ -240,8 +240,6 @@ class RawFSBackend(CacheBackend):
         if self.cache_size is None:
             return
         while sum((keys_with_desc[key]['size'] for key in keys_by_newest), 0) > self.cache_size:
-            if not keys_by_newest:
-                break
             key = keys_by_newest.pop()
             self.attempt_delete_key(key)
 
