@@ -18,6 +18,11 @@ def backend_cache_size():
 
 
 @pytest.fixture
+def backend_distributed_lock():
+    return None
+
+
+@pytest.fixture
 def backend_expiration_time():
     return None
 
@@ -33,12 +38,14 @@ def backend_arguments(
     backend_cache_size,
     backend_expiration_time,
     backend_file_movable,
+    backend_distributed_lock,
 ):
     return {
         'base_dir': backend_base_dir,
         'cache_size': backend_cache_size,
         'expiration_time': backend_expiration_time,
         'file_movable': backend_file_movable,
+        'distributed_lock': backend_distributed_lock,
     }
 
 

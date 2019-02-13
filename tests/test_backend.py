@@ -21,6 +21,24 @@ def test_normal_usage(region):
     assert side_effect == [1]
 
 
+@pytest.mark.parametrize('backend_distributed_lock', [True, False, None])
+def test_distributed_lock(region, backend_distributed_lock):
+    side_effect = []
+
+    @region.cache_on_arguments()
+    def fn(arg):
+        side_effect.append(arg)
+        return arg + 1
+
+    if backend_distributed_lock:
+        assert region.backend.get_mutex('foo') is not None
+    else:
+        assert region.backend.get_mutex('foo') is None
+    assert fn(1) == 2
+
+    assert side_effect == [1]
+
+
 def test_delete(region):
     side_effects = []
 
