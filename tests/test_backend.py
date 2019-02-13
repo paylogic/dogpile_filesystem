@@ -21,6 +21,20 @@ def test_normal_usage(region):
     assert side_effect == [1]
 
 
+def test_recursive_usage(region):
+    context = {'value': 3}
+
+    @region.cache_on_arguments()
+    def fn():
+        if context['value'] == 0:
+            return 42
+        context['value'] -= 1
+        return fn()
+
+    assert fn() == 42
+    assert context['value'] == 0
+
+
 @pytest.mark.parametrize('backend_name', ['paylogic.raw_fs_backend'])
 @pytest.mark.parametrize('backend_file_movable', [False])
 @pytest.mark.parametrize('file_creator', [
@@ -49,20 +63,6 @@ def test_file_not_movable_usage(region, tmpdir, file_creator):
     with fn('foo', 2) as result:
         assert result.read() == b'1' * 1
     assert side_effects == ['foo']
-
-
-def test_recursive_usage(region):
-    context = {'value': 3}
-
-    @region.cache_on_arguments()
-    def fn():
-        if context['value'] == 0:
-            return 42
-        context['value'] -= 1
-        return fn()
-
-    assert fn() == 42
-    assert context['value'] == 0
 
 
 @pytest.mark.parametrize('backend_name', ['paylogic.raw_fs_backend'])
