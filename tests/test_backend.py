@@ -20,9 +20,9 @@ def test_normal_usage(region):
 
     assert side_effect == [1]
 
-
+# TODO: Actually check that other processes cannot acquire the lock
 @pytest.mark.parametrize('backend_distributed_lock', [True, False, None])
-def test_distributed_lock(region, backend_distributed_lock):
+def test_distributed_lock_param(region, backend_distributed_lock):
     side_effect = []
 
     @region.cache_on_arguments()
