@@ -29,6 +29,7 @@ Metadata = collections.namedtuple('Metadata', ['original_file_offset', 'dogpile_
 
 class RawFSBackend(CacheBackend):
     """A file-backend using files to store keys.
+    It only accepts files as the value type.
 
     Basic usage::
 
@@ -54,8 +55,7 @@ class RawFSBackend(CacheBackend):
             return f
 
 
-    Parameters to the ``arguments`` dictionary are
-    below.
+    Parameters to the ``arguments`` dictionary are below.
 
     :param base_dir: path of the directory where to store the files.
     :param expiration_time: expiration time of the keys
@@ -246,6 +246,41 @@ class RawFSBackend(CacheBackend):
 
 
 class GenericFSBackend(RawFSBackend):
+    """A file-backend using files to store keys.
+    It accepts any picklable value.
+
+    Basic usage::
+
+        from dogpile.cache import make_region
+
+        region = make_region().configure(
+            'paylogic.files_backend',
+            expiration_time = datetime.timedelta(seconds=30),
+            arguments = {
+                "base_dir": "/path/to/cachedir",
+                "file_movable": True,
+                "cache_size": 1024*1024*1024,  # 1 Gb
+                "expiration_time: datetime.timedelta(seconds=30),
+            }
+        )
+
+        @region.cache_on_arguments()
+        def my_function(args):
+            return 42
+
+
+    Parameters to the ``arguments`` dictionary are below.
+
+    :param base_dir: path of the directory where to store the files.
+    :param expiration_time: expiration time of the keys
+    :param cache_size: the maximum size of the directory. Once exceeded, keys will be removed in a
+                       LRU fashion.
+    :param distributed_lock: boolean, when True (default), will use a file-based lock (using lockf) as the dogpile
+                             lock (see :class:`.RangedFileReentrantLock`).
+                             Use this when multiple processes will be talking to the same file system.
+                             When left at False, dogpile will coordinate on a regular threading mutex.
+    """
+
     def __init__(self, arguments):
         arguments['file_movable'] = True
         super(GenericFSBackend, self).__init__(arguments)
