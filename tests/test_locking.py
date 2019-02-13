@@ -1,4 +1,3 @@
-import errno
 import multiprocessing
 import threading
 
@@ -16,6 +15,7 @@ def test_dogpile_lock_threaded(region):
     mutex.release()
 
     thread_result = []
+
     def other_thread():
         o_mutex = region.backend.get_mutex('asd')
         assert o_mutex is mutex  # TODO: This should be a different test
@@ -45,6 +45,7 @@ def test_dogpile_lock_processes(region):
 
     proc_result = multiprocessing.Value('d', 42)
     assert proc_result.value == 42
+
     def other_process():
         o_mutex = region.backend.get_mutex('asd')
         proc_result.value = o_mutex.acquire(False)
@@ -81,4 +82,3 @@ def test_can_acquire_n_locks(tmpdir, n_locks, n_files):
             lockset += [lock]
     for lock in lockset:
         lock.release()
-

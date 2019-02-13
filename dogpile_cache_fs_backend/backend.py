@@ -6,7 +6,6 @@ Provides backends that deal with local filesystem access.
 
 """
 import collections
-import datetime
 import hashlib
 import io
 import os

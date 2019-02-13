@@ -51,6 +51,7 @@ def test_recursive_usage(region):
 
 def test_get_set_multi(region):
     side_effects = []
+
     @region.cache_multi_on_arguments()
     def fn(*args):
         side_effects.append(args)
@@ -63,6 +64,7 @@ def test_get_set_multi(region):
 
 def test_delete_multi(region):
     side_effects = []
+
     @region.cache_multi_on_arguments()
     def fn(*args):
         side_effects.append(args)
@@ -82,7 +84,7 @@ def test_delete_multi(region):
     pytest.param(lambda tmpdir: open(str(tmpdir / 'foo'), 'w+b'), id='open'),
     pytest.param(lambda tmpdir: io.open(str(tmpdir / 'bar'), 'w+b'), id='io.open'),
     pytest.param(lambda tmpdir: (tmpdir / 'baz').open('w+b'), id='tmpdir.open'),
-    pytest.param(lambda tmpdir: os.fdopen(os.open(str(tmpdir / 'asd'), os.O_RDWR|os.O_CREAT), 'w+b'), id='os.fdopen'),
+    pytest.param(lambda tmpdir: os.fdopen(os.open(str(tmpdir / 'asd'), os.O_RDWR | os.O_CREAT), 'w+b'), id='os.fdopen'),
 ])
 def test_file_not_movable_usage(region, tmpdir, file_creator):
     side_effects = []
@@ -111,7 +113,7 @@ def test_file_not_movable_usage(region, tmpdir, file_creator):
     pytest.param(lambda tmpdir: open(str(tmpdir / 'foo'), 'w+b'), id='open'),
     pytest.param(lambda tmpdir: io.open(str(tmpdir / 'foo'), 'w+b'), id='io.open'),
     pytest.param(lambda tmpdir: (tmpdir / 'foo').open('w+b'), id='tmpdir.open'),
-    pytest.param(lambda tmpdir: os.fdopen(os.open(str(tmpdir / 'foo'), os.O_RDWR|os.O_CREAT), 'w+b'), id='os.fdopen'),
+    pytest.param(lambda tmpdir: os.fdopen(os.open(str(tmpdir / 'foo'), os.O_RDWR | os.O_CREAT), 'w+b'), id='os.fdopen'),
 ])
 def test_file_movable_usage(region, tmpdir, file_creator):
     side_effects = []
@@ -189,7 +191,6 @@ def test_expired_items_are_not_returned(region):
 
 @pytest.mark.parametrize('backend_expiration_time', [datetime.timedelta(seconds=30)])
 def test_expired_items_are_deleted(region):
-
     @region.cache_on_arguments()
     def fn(arg):
         return arg
