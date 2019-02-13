@@ -1,3 +1,4 @@
+import errno
 import multiprocessing
 import threading
 
@@ -82,3 +83,64 @@ def test_can_acquire_n_locks(tmpdir, n_locks, n_files):
             lockset += [lock]
     for lock in lockset:
         lock.release()
+
+
+# TODO: Refactor this mess
+def _test_avoid_deadlock_process(queue, result_q):
+    from dogpile_cache_fs_backend import registry
+
+    locks = []
+    while True:
+        item = queue.get()
+        if item == 'done':
+            break
+        lock = registry.locks.get(item)
+        try:
+            lock.acquire()
+        except Exception as e:
+            result_q.put(e)
+            return
+        finally:
+            queue.task_done()
+        locks.append(lock)
+
+    for lock in locks:
+        lock.release()
+    queue.task_done()
+    result_q.put('success')
+
+
+def test_avoid_deadlock(tmpdir):
+    lock_file_path = str(tmpdir / 'lock')
+
+    q1 = multiprocessing.JoinableQueue()
+    q1result = multiprocessing.JoinableQueue()
+    q2 = multiprocessing.JoinableQueue()
+    q2result = multiprocessing.JoinableQueue()
+    process1 = multiprocessing.Process(target=_test_avoid_deadlock_process, args=[q1, q1result])
+    process2 = multiprocessing.Process(target=_test_avoid_deadlock_process, args=[q2, q2result])
+    process1.start()
+    process2.start()
+
+    q1.put((lock_file_path, 1))
+    q1.join()  # the other process acquired mutex 1
+
+    q2.put((lock_file_path, 2))
+    q2.join()  # the other process acquired mutex 1
+
+    q1.put((lock_file_path, 2))
+    q2.put((lock_file_path, 1))
+    q1.join()
+    q2.join()
+    q1.put('done')
+    q2.put('done')
+
+    results = {q1result.get(), q2result.get()}
+    process1.join()
+    process2.join()
+    while results:
+        result = results.pop()
+        if result == 'success':
+            continue
+        assert isinstance(result, IOError)
+        assert result.errno == errno.EDEADLK
