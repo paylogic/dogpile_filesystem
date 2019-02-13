@@ -27,6 +27,11 @@ __all__ = ['FSBackend']
 
 Metadata = collections.namedtuple('Metadata', ['type', 'original_file_offset', 'dogpile_metadata'])
 
+# Python2 compatible enumeration
+VALUE_TYPE_RAW_FILE = 'file'
+VALUE_TYPE_PICKLE = 'pickle'
+
+
 class FSBackend(CacheBackend):
     """A file-backend using files to store keys.
 
@@ -120,7 +125,8 @@ class FSBackend(CacheBackend):
 
             with open(file_path_metadata, 'rb') as i:
                 metadata = pickle.load(i)
-            if metadata.type == 'file':
+
+            if metadata.type == VALUE_TYPE_RAW_FILE:
                 file = io.open(file_path_payload, 'rb')
                 if metadata.original_file_offset is not None:
                     file.seek(metadata.original_file_offset, 0)
@@ -130,7 +136,6 @@ class FSBackend(CacheBackend):
                 )
             elif metadata.dogpile_metadata is not None:
                 with open(file_path_payload, 'rb') as i:
-
                     return CachedValue(
                         pickle.load(i),
                         metadata.dogpile_metadata,
@@ -150,13 +155,13 @@ class FSBackend(CacheBackend):
             payload, dogpile_metadata = value, None
 
         if not is_file(payload):
-            type = 'value'
+            type = VALUE_TYPE_PICKLE
             with tempfile.NamedTemporaryFile(delete=False) as payload_file:
                 pickle.dump(payload, payload_file, pickle.HIGHEST_PROTOCOL)
             payload_file_path = payload_file.name
             original_file_offset = None
         else:
-            type = 'file'
+            type = VALUE_TYPE_RAW_FILE
             original_file_offset = payload.tell()
             # TODO: name can be a file descriptor, fix it
             if self.file_movable and hasattr(payload, 'name') and os.path.exists(payload.name):
