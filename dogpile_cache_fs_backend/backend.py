@@ -15,6 +15,7 @@ import tempfile
 from shutil import copyfileobj
 
 import pytz  # TODO: Remove this dependency
+import six.moves
 
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 
@@ -151,21 +152,24 @@ class FSBackend(CacheBackend):
         with tempfile.NamedTemporaryFile(delete=False) as metadata_file:
             pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
 
-        if not isinstance(payload, io.IOBase):
+        if not is_file(payload):
             type = 'value'
             with tempfile.NamedTemporaryFile(delete=False) as payload_file:
                 pickle.dump(payload, payload_file, pickle.HIGHEST_PROTOCOL)
             payload_file_path = payload_file.name
         else:
             type = 'file'
-            if self.file_movable and hasattr(payload, 'name'):
+            # TODO: name can be a file descriptor, fix it
+            if self.file_movable and hasattr(payload, 'name') and os.path.exists(payload.name):
                 payload_file_path = payload.name
             else:
+                initial_offset = payload.tell()
                 payload.seek(0)
-
-                with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
-                    copyfileobj(payload, tmpfile, length=1024 * 1024)
-                # TODO: seek to the original cursor
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+                        copyfileobj(payload, tmpfile, length=1024 * 1024)
+                finally:
+                    payload.seek(initial_offset, 0)
                 payload_file_path = tmpfile.name
 
         with tempfile.NamedTemporaryFile(delete=False) as type_file:
@@ -253,3 +257,17 @@ class FSBackend(CacheBackend):
                 break
             key = keys_by_newest.pop()
             self.attempt_delete_key(key)
+
+
+def is_file(f):
+    # The python 3 way and sometimes 2 way
+    if isinstance(f, io.IOBase):
+        return True
+    # The case that breaks in python 2 and 3
+    if isinstance(f, tempfile._TemporaryFileWrapper):
+        return True
+    # The python2 way
+    py2_file  = getattr(six.moves.builtins, 'file', None)
+    if py2_file is not None and isinstance(f, py2_file):
+        return True
+    return False

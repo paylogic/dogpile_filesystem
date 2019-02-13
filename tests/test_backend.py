@@ -1,4 +1,5 @@
 import datetime
+import io
 import os
 import tempfile
 
@@ -18,6 +19,36 @@ def test_normal_usage(region):
     assert fn(1) == 2
 
     assert side_effect == [1]
+
+
+@pytest.mark.parametrize('backend_file_movable', [True, False])
+@pytest.mark.parametrize('file_creator', [
+    pytest.param(lambda _: tempfile.NamedTemporaryFile(delete=False), id='NamedTemporaryFile'),
+    pytest.param(lambda tmpdir: open(str(tmpdir / 'foo'), 'w+b'), id='open'),
+    pytest.param(lambda tmpdir: io.open(str(tmpdir / 'foo'), 'w+b'), id='io.open'),
+    pytest.param(lambda tmpdir: (tmpdir / 'foo').open('w+b'), id='tmpdir.open'),
+    pytest.param(lambda tmpdir: os.fdopen(os.open(str(tmpdir / 'foo'), os.O_RDWR|os.O_CREAT), 'w+b'), id='os.fdopen'),
+])
+def test_file_movable_usage(region, tmpdir, file_creator):
+    side_effects = []
+    @region.cache_on_arguments()
+    def fn(arg, size):
+        side_effects.append(arg)
+        f = file_creator(tmpdir)
+        f.write(b'1' * size)
+        f.flush()
+        f.seek(0)
+        return f
+
+    with fn('foo', 10000) as f:
+        assert f.read() == b'1' * 10000
+    with fn('foo', 10000) as f:
+        assert f.read() == b'1' * 10000
+    assert side_effects == ['foo']
+
+
+def test_seek_point_restored_on_gets():
+    raise NotImplementedError
 
 
 def test_recursive_usage(region):
