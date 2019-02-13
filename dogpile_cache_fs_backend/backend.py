@@ -16,23 +16,18 @@ import tempfile
 from shutil import copyfileobj
 
 import pytz  # TODO: Remove this dependency
-import six.moves
 
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 
 from . import registry
 from .utils import _remove, _ensure_dir, _stat, _get_size, _get_last_modified, without_suffixes, _key_to_offset
 
-__all__ = ['FSBackend']
+__all__ = ['RawFSBackend', 'GenericFSBackend']
 
-Metadata = collections.namedtuple('Metadata', ['type', 'original_file_offset', 'dogpile_metadata'])
-
-# Python2 compatible enumeration
-VALUE_TYPE_RAW_FILE = 'file'
-VALUE_TYPE_PICKLE = 'pickle'
+Metadata = collections.namedtuple('Metadata', ['original_file_offset', 'dogpile_metadata'])
 
 
-class FSBackend(CacheBackend):
+class RawFSBackend(CacheBackend):
     """A file-backend using files to store keys.
 
     Basic usage::
@@ -68,6 +63,10 @@ class FSBackend(CacheBackend):
                        LRU fashion.
     :param file_movable: whether the file provided to .set() can be moved. If that's the case,
                          the backend will avoid copying the contents.
+    :param distributed_lock: boolean, when True (default), will use a file-based lock (using lockf) as the dogpile
+                             lock (see :class:`.RangedFileReentrantLock`).
+                             Use this when multiple processes will be talking to the same file system.
+                             When left at False, dogpile will coordinate on a regular threading mutex.
     """
 
     @staticmethod
@@ -75,7 +74,6 @@ class FSBackend(CacheBackend):
         return hashlib.sha256(key.encode('utf-8')).hexdigest()
 
     def __init__(self, arguments):
-        # TODO: Add self.lock_expiration
         self.base_dir = os.path.abspath(
             os.path.normpath(arguments['base_dir'])
         )
@@ -126,23 +124,15 @@ class FSBackend(CacheBackend):
             with open(file_path_metadata, 'rb') as i:
                 metadata = pickle.load(i)
 
-            if metadata.type == VALUE_TYPE_RAW_FILE:
-                file = io.open(file_path_payload, 'rb')
-                if metadata.original_file_offset is not None:
-                    file.seek(metadata.original_file_offset, 0)
+            file = io.open(file_path_payload, 'rb')
+            if metadata.original_file_offset is not None:
+                file.seek(metadata.original_file_offset, 0)
+            if metadata.dogpile_metadata is not None:
                 return CachedValue(
                     file,
                     metadata.dogpile_metadata,
                 )
-            elif metadata.dogpile_metadata is not None:
-                with open(file_path_payload, 'rb') as i:
-                    return CachedValue(
-                        pickle.load(i),
-                        metadata.dogpile_metadata,
-                    )
-            else:
-                with open(file_path_payload, 'rb') as i:
-                    return pickle.load(i)
+            return file
 
     def get_multi(self, keys):
         return [self.get(key) for key in keys]
@@ -154,30 +144,21 @@ class FSBackend(CacheBackend):
         else:
             payload, dogpile_metadata = value, None
 
-        if not is_file(payload):
-            type = VALUE_TYPE_PICKLE
-            with tempfile.NamedTemporaryFile(delete=False) as payload_file:
-                pickle.dump(payload, payload_file, pickle.HIGHEST_PROTOCOL)
-            payload_file_path = payload_file.name
-            original_file_offset = None
+        original_file_offset = payload.tell()
+        # TODO: name can be a file descriptor, fix it
+        if self.file_movable and hasattr(payload, 'name') and os.path.exists(payload.name):
+            payload_file_path = payload.name
         else:
-            type = VALUE_TYPE_RAW_FILE
-            original_file_offset = payload.tell()
-            # TODO: name can be a file descriptor, fix it
-            if self.file_movable and hasattr(payload, 'name') and os.path.exists(payload.name):
-                payload_file_path = payload.name
-            else:
-                payload.seek(0)
-                try:
-                    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
-                        copyfileobj(payload, tmpfile, length=1024 * 1024)
-                finally:
-                    payload.seek(original_file_offset, 0)
-                payload_file_path = tmpfile.name
+            payload.seek(0)
+            try:
+                with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+                    copyfileobj(payload, tmpfile, length=1024 * 1024)
+            finally:
+                payload.seek(original_file_offset, 0)
+            payload_file_path = tmpfile.name
 
         metadata = Metadata(
             dogpile_metadata=dogpile_metadata,
-            type=type,
             original_file_offset=original_file_offset,
         )
         with tempfile.NamedTemporaryFile(delete=False) as metadata_file:
@@ -264,15 +245,23 @@ class FSBackend(CacheBackend):
             self.attempt_delete_key(key)
 
 
-def is_file(f):
-    # The python 3 way and sometimes 2 way
-    if isinstance(f, io.IOBase):
-        return True
-    # The case that breaks in python 2 and 3
-    if isinstance(f, tempfile._TemporaryFileWrapper):
-        return True
-    # The python2 way
-    py2_file  = getattr(six.moves.builtins, 'file', None)
-    if py2_file is not None and isinstance(f, py2_file):
-        return True
-    return False
+class GenericFSBackend(RawFSBackend):
+    def __init__(self, arguments):
+        arguments['file_movable'] = True
+        super(GenericFSBackend, self).__init__(arguments)
+
+    def set(self, key, value):
+        with tempfile.NamedTemporaryFile(delete=False) as value_file:
+            pickle.dump(value, value_file, pickle.HIGHEST_PROTOCOL)
+            value_file.seek(0)
+            value_file.flush()
+            super(GenericFSBackend, self).set(key, value_file)
+
+    def get(self, key):
+        value_file = super(GenericFSBackend, self).get(key)
+        if value_file is NO_VALUE:
+            return NO_VALUE
+        try:
+            return pickle.load(value_file)
+        finally:
+            value_file.close()

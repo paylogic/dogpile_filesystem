@@ -3,6 +3,11 @@ import pytest
 
 
 @pytest.fixture
+def backend_name():
+    return 'paylogic.generic_fs_backend'
+
+
+@pytest.fixture
 def backend_base_dir(tmpdir):
     return str(tmpdir)
 
@@ -43,10 +48,10 @@ def region_expiration_time():
 
 
 @pytest.fixture
-def region(backend_arguments, region_expiration_time):
+def region(backend_name, backend_arguments, region_expiration_time):
     r = dogpile.cache.make_region('test_region')
     r.configure(
-        backend='paylogic.fs_backend',
+        backend=backend_name,
         expiration_time=region_expiration_time,
         arguments=backend_arguments,
     )

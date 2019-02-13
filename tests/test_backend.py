@@ -21,6 +21,7 @@ def test_normal_usage(region):
     assert side_effect == [1]
 
 
+@pytest.mark.parametrize('backend_name', ['paylogic.raw_fs_backend'])
 @pytest.mark.parametrize('backend_file_movable', [True])
 @pytest.mark.parametrize('file_creator', [
     pytest.param(lambda _: tempfile.NamedTemporaryFile(delete=False), id='tempfile.NamedTemporaryFile'),
@@ -47,6 +48,7 @@ def test_file_movable_usage(region, tmpdir, file_creator):
     assert side_effects == ['foo']
 
 
+@pytest.mark.parametrize('backend_name', ['paylogic.raw_fs_backend'])
 @pytest.mark.parametrize('backend_file_movable', [False])
 @pytest.mark.parametrize('file_creator', [
     pytest.param(lambda _: tempfile.NamedTemporaryFile(delete=False), id='tempfile.NamedTemporaryFile'),
