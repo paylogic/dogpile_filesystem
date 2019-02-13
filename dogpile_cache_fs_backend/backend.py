@@ -12,10 +12,9 @@ import io
 import os
 import pickle
 import tempfile
+import time
 
 from shutil import copyfileobj
-
-import pytz  # TODO: Remove this dependency
 
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 
@@ -111,14 +110,14 @@ class RawFSBackend(CacheBackend):
         return os.path.join(self.values_dir, key + '.metadata')
 
     def get(self, key):
-        now = datetime.datetime.now(tz=pytz.utc)
+        now_timestamp = time.time()
         file_path_payload = self._file_path_payload(key)
         file_path_metadata = self._file_path_metadata(key)
         with self._get_rw_lock(key):
             if not os.path.exists(file_path_payload) or not os.path.exists(file_path_metadata):
                 return NO_VALUE
             if self.expiration_time is not None:
-                if _get_last_modified(_stat(file_path_payload)) < now - self.expiration_time:
+                if _get_last_modified(_stat(file_path_payload)) < now_timestamp - self.expiration_time.total_seconds():
                     return NO_VALUE
 
             with open(file_path_metadata, 'rb') as i:
@@ -219,14 +218,14 @@ class RawFSBackend(CacheBackend):
                 rw_lock.release()
 
     def prune(self):
-        now = datetime.datetime.now(tz=pytz.utc)
+        now_timestamp = time.time()
         keys_with_desc = self._list_keys_with_desc()
         keys = set(keys_with_desc)
         remaining_keys = set(keys_with_desc)
 
         if self.expiration_time is not None:
             for key in keys:
-                if keys_with_desc[key]['last_modified'] >= now - self.expiration_time:
+                if keys_with_desc[key]['last_modified'] >= now_timestamp - self.expiration_time.total_seconds():
                     continue
                 self.attempt_delete_key(key)
                 remaining_keys.discard(key)

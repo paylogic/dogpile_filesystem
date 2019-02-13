@@ -1,13 +1,10 @@
 import codecs
-import datetime
 import errno
 import hashlib
 import os
 import sys
 import warnings
 
-import pytz
-import six
 from dogpile.util import NameRegistry
 
 
@@ -44,8 +41,8 @@ def _get_size(stat):
 
 def _get_last_modified(stat):
     if stat is None:
-        return datetime.datetime.fromtimestamp(0, tz=pytz.utc)
-    return datetime.datetime.fromtimestamp(stat.st_mtime, pytz.utc)
+        return 0
+    return stat.st_mtime
 
 
 def without_suffixes(string, suffixes):
