@@ -37,23 +37,24 @@ def test_file_movable_usage(region, tmpdir, file_creator):
         f = file_creator(tmpdir)
         f.write(b'1' * size)
         f.flush()
-        f.seek(0)
+        f.seek(1)
         return f
 
-    with fn('foo', 10000) as f:
-        assert f.read() == b'1' * 10000
-    with fn('foo', 10000) as f:
-        assert f.read() == b'1' * 10000
+    with fn('foo', 2) as f:
+        assert f.read() == b'1' * 1
+    with fn('foo', 2) as f:
+        assert f.read() == b'1' * 1
     assert side_effects == ['foo']
 
 
 @pytest.mark.parametrize('backend_file_movable', [False])
 @pytest.mark.parametrize('file_creator', [
     pytest.param(lambda _: tempfile.NamedTemporaryFile(delete=False), id='tempfile.NamedTemporaryFile'),
+    pytest.param(lambda _: tempfile.NamedTemporaryFile(delete=True), id='tempfile.NamedTemporaryFile(delete)'),
     pytest.param(lambda tmpdir: open(str(tmpdir / 'foo'), 'w+b'), id='open'),
-    pytest.param(lambda tmpdir: io.open(str(tmpdir / 'foo'), 'w+b'), id='io.open'),
-    pytest.param(lambda tmpdir: (tmpdir / 'foo').open('w+b'), id='tmpdir.open'),
-    pytest.param(lambda tmpdir: os.fdopen(os.open(str(tmpdir / 'foo'), os.O_RDWR|os.O_CREAT), 'w+b'), id='os.fdopen'),
+    pytest.param(lambda tmpdir: io.open(str(tmpdir / 'bar'), 'w+b'), id='io.open'),
+    pytest.param(lambda tmpdir: (tmpdir / 'baz').open('w+b'), id='tmpdir.open'),
+    pytest.param(lambda tmpdir: os.fdopen(os.open(str(tmpdir / 'asd'), os.O_RDWR|os.O_CREAT), 'w+b'), id='os.fdopen'),
 ])
 def test_file_not_movable_usage(region, tmpdir, file_creator):
     side_effects = []
@@ -65,8 +66,7 @@ def test_file_not_movable_usage(region, tmpdir, file_creator):
         f.flush()
         f.seek(1)
         return f
-    with fn.original('foo', 2) as f:
-        assert f.read() == b'1' * 1
+
     side_effects = []
     with fn('foo', 2) as f:
         assert f.read() == b'1' * 1
