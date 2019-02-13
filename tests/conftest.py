@@ -19,7 +19,7 @@ def backend_cache_size():
 
 @pytest.fixture
 def backend_distributed_lock():
-    return None
+    return True
 
 
 @pytest.fixture

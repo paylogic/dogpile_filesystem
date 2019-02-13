@@ -136,6 +136,7 @@ class RawFSBackend(CacheBackend):
         return [self.get(key) for key in keys]
 
     def set(self, key, value):
+        now_timestamp = time.time()
         self.prune()
         if isinstance(value, CachedValue):
             payload, dogpile_metadata = value.payload, value.metadata
@@ -165,6 +166,8 @@ class RawFSBackend(CacheBackend):
         with self._get_rw_lock(key):
             os.rename(metadata_file.name, self._file_path_metadata(key))
             os.rename(payload_file_path, self._file_path_payload(key))
+            os.utime(self._file_path_metadata(key), (now_timestamp, now_timestamp))
+            os.utime(self._file_path_payload(key), (now_timestamp, now_timestamp))
 
     def set_multi(self, mapping):
         for key, value in mapping.items():

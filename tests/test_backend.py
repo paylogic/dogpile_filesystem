@@ -2,9 +2,13 @@ import datetime
 import io
 import os
 import tempfile
+import time
 
+import mock as mock
 import pytest
 from dogpile.cache.api import NO_VALUE
+
+from dogpile_cache_fs_backend import backend
 
 
 def test_normal_usage(region):
@@ -53,6 +57,11 @@ def test_delete(region):
     assert side_effects == [1, 1]
 
 
+@pytest.mark.parametrize('backend_distributed_lock', [
+    True,
+    pytest.param(False, marks=pytest.mark.skip(reason='Recursive usage with dogpile thread lock is broken')),
+    pytest.param(None, marks=pytest.mark.skip(reason='Recursive usage with dogpile thread lock is broken'))
+])
 def test_recursive_usage(region):
     context = {'value': 3}
 
@@ -174,8 +183,23 @@ def test_cleanup_when_size_exceeded(region):
     assert 10000 < size < 10000 + EPSILON
 
 
+def test_cleanup_expired_keys(region):
+    @region.cache_on_arguments()
+    def fn(arg):
+        return arg + 1
+
+    assert fn(1) == 2
+    assert fn.get(1) == 2
+
+    region.backend.expiration_time = datetime.timedelta(seconds=0)
+    region.backend.prune()
+    assert fn.get(1) is NO_VALUE
+    assert not os.listdir(region.backend.values_dir)
+    assert fn(1) == 2
+
+
 @pytest.mark.parametrize('backend_cache_size', [None, 30000])
-def test_no_cleanup(region):
+def test_no_cleanup_required(region):
     @region.cache_on_arguments()
     def fn(arg, size):
         return b'0' * size
@@ -211,10 +235,47 @@ def test_expired_items_are_not_returned(region):
 def test_expired_items_are_deleted(region):
     @region.cache_on_arguments()
     def fn(arg):
-        return arg
+        return arg + 1
 
-    fn(1)
-    region.backend.expiration_time = datetime.timedelta(0)
+    assert fn(1) == fn.get(1) == 2
 
+    region.backend.expiration_time = datetime.timedelta(seconds=0)
     region.backend.prune()
     assert fn.get(1) is NO_VALUE
+    assert not os.listdir(region.backend.values_dir)
+    assert fn(1) == 2
+
+
+@pytest.mark.parametrize('backend_expiration_time', [datetime.timedelta(seconds=30)])
+def test_unexpired_items_are_notdeleted(region):
+    @region.cache_on_arguments()
+    def fn(arg):
+        return arg + 1
+
+    _40_seconds_ago = time.time() - 40
+    with mock.patch('time.time', return_value=_40_seconds_ago) as m:
+        assert fn(1) == 2
+        assert m.called
+
+    assert fn(2) == 3  # The unexpired key
+
+    region.backend.prune()
+    assert fn.get(1) is NO_VALUE  # 1 expired
+    assert fn.get(2) == 3
+
+
+@pytest.mark.parametrize('backend_cache_size', [15000])
+def test_cleanup_does_not_get_stuck_in_case_files_are_not_deletable(region):
+    @region.cache_on_arguments()
+    def fn(arg, size):
+        return b'0' * size
+
+    with mock.patch.object(backend.RawFSBackend, 'prune', return_value=None, autospec=True) as m:
+        assert fn('foo', 10000)
+        assert fn('bar', 10000)
+        assert fn('baz', 10000)
+        assert m.called
+
+    with mock.patch('dogpile_cache_fs_backend.backend._remove', return_value=None) as m:
+        region.backend.prune()
+        assert m.called
