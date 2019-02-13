@@ -5,6 +5,7 @@ File Backends
 Provides backends that deal with local filesystem access.
 
 """
+import collections
 import datetime
 import hashlib
 import io
@@ -24,6 +25,7 @@ from .utils import _remove, _ensure_dir, _stat, _get_size, _get_last_modified, w
 
 __all__ = ['FSBackend']
 
+Metadata = collections.namedtuple('Metadata', ['type', 'original_file_offset', 'dogpile_metadata'])
 
 class FSBackend(CacheBackend):
     """A file-backend using files to store keys.
@@ -105,17 +107,12 @@ class FSBackend(CacheBackend):
     def _file_path_metadata(self, key):
         return os.path.join(self.values_dir, key + '.metadata')
 
-    def _file_path_type(self, key):
-        return os.path.join(self.values_dir, key + '.type')
-
     def get(self, key):
         now = datetime.datetime.now(tz=pytz.utc)
         file_path_payload = self._file_path_payload(key)
         file_path_metadata = self._file_path_metadata(key)
-        file_path_type = self._file_path_type(key)
         with self._get_rw_lock(key):
-            if not os.path.exists(file_path_payload) or not os.path.exists(file_path_metadata) \
-                or not os.path.exists(file_path_type):
+            if not os.path.exists(file_path_payload) or not os.path.exists(file_path_metadata):
                 return NO_VALUE
             if self.expiration_time is not None:
                 if _get_last_modified(_stat(file_path_payload)) < now - self.expiration_time:
@@ -123,18 +120,20 @@ class FSBackend(CacheBackend):
 
             with open(file_path_metadata, 'rb') as i:
                 metadata = pickle.load(i)
-            with open(file_path_type, 'rb') as i:
-                type = pickle.load(i)
-            if type == 'file':
+            if metadata.type == 'file':
+                file = io.open(file_path_payload, 'rb')
+                if metadata.original_file_offset is not None:
+                    file.seek(metadata.original_file_offset, 0)
                 return CachedValue(
-                    open(file_path_payload, 'rb'),
-                    metadata,
+                    file,
+                    metadata.dogpile_metadata,
                 )
-            elif metadata is not None:
+            elif metadata.dogpile_metadata is not None:
                 with open(file_path_payload, 'rb') as i:
+
                     return CachedValue(
                         pickle.load(i),
-                        metadata,
+                        metadata.dogpile_metadata,
                     )
             else:
                 with open(file_path_payload, 'rb') as i:
@@ -146,38 +145,41 @@ class FSBackend(CacheBackend):
     def set(self, key, value):
         self.prune()
         if isinstance(value, CachedValue):
-            payload, metadata = value.payload, value.metadata
+            payload, dogpile_metadata = value.payload, value.metadata
         else:
-            payload, metadata = value, None
-        with tempfile.NamedTemporaryFile(delete=False) as metadata_file:
-            pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
+            payload, dogpile_metadata = value, None
 
         if not is_file(payload):
             type = 'value'
             with tempfile.NamedTemporaryFile(delete=False) as payload_file:
                 pickle.dump(payload, payload_file, pickle.HIGHEST_PROTOCOL)
             payload_file_path = payload_file.name
+            original_file_offset = None
         else:
             type = 'file'
+            original_file_offset = payload.tell()
             # TODO: name can be a file descriptor, fix it
             if self.file_movable and hasattr(payload, 'name') and os.path.exists(payload.name):
                 payload_file_path = payload.name
             else:
-                initial_offset = payload.tell()
                 payload.seek(0)
                 try:
                     with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
                         copyfileobj(payload, tmpfile, length=1024 * 1024)
                 finally:
-                    payload.seek(initial_offset, 0)
+                    payload.seek(original_file_offset, 0)
                 payload_file_path = tmpfile.name
 
-        with tempfile.NamedTemporaryFile(delete=False) as type_file:
-            pickle.dump(type, type_file, pickle.HIGHEST_PROTOCOL)
+        metadata = Metadata(
+            dogpile_metadata=dogpile_metadata,
+            type=type,
+            original_file_offset=original_file_offset,
+        )
+        with tempfile.NamedTemporaryFile(delete=False) as metadata_file:
+            pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
 
         with self._get_rw_lock(key):
             os.rename(metadata_file.name, self._file_path_metadata(key))
-            os.rename(type_file.name, self._file_path_type(key))
             os.rename(payload_file_path, self._file_path_payload(key))
 
     def set_multi(self, mapping):
@@ -195,7 +197,6 @@ class FSBackend(CacheBackend):
     def _delete_key_files(self, key):
         _remove(self._file_path_payload(key))
         _remove(self._file_path_metadata(key))
-        _remove(self._file_path_type(key))
 
     def _list_keys_with_desc(self):
         suffixes = ['.payload', '.metadata', '.type']
@@ -218,7 +219,6 @@ class FSBackend(CacheBackend):
                 'size': (
                     _get_size(files_with_stats.get(key + '.payload'))
                     + _get_size(files_with_stats.get(key + '.metadata'))
-                    + _get_size(files_with_stats.get(key + '.type'))
                 ),
             }
             for key in keys

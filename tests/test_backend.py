@@ -67,15 +67,12 @@ def test_file_not_movable_usage(region, tmpdir, file_creator):
         return f
     with fn.original('foo', 2) as f:
         assert f.read() == b'1' * 1
+    side_effects = []
     with fn('foo', 2) as f:
         assert f.read() == b'1' * 1
     with fn('foo', 2) as f:
         assert f.read() == b'1' * 1
     assert side_effects == ['foo']
-
-
-def test_seek_point_restored_on_gets():
-    raise NotImplementedError
 
 
 def test_recursive_usage(region):
