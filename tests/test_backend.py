@@ -21,6 +21,20 @@ def test_normal_usage(region):
     assert side_effect == [1]
 
 
+def test_delete(region):
+    side_effects = []
+
+    @region.cache_on_arguments()
+    def fn(arg):
+        side_effects.append(arg)
+        return arg + 1
+
+    assert fn(1) == 2
+    fn.invalidate(1)
+    assert fn(1) == 2
+    assert side_effects == [1, 1]
+
+
 def test_recursive_usage(region):
     context = {'value': 3}
 
@@ -33,6 +47,31 @@ def test_recursive_usage(region):
 
     assert fn() == 42
     assert context['value'] == 0
+
+
+def test_get_set_multi(region):
+    side_effects = []
+    @region.cache_multi_on_arguments()
+    def fn(*args):
+        side_effects.append(args)
+        return [arg + 1 for arg in args]
+
+    assert fn(1, 2, 3) == [2, 3, 4]
+    assert fn(1, 2, 3) == [2, 3, 4]
+    assert side_effects == [(1, 2, 3)]
+
+
+def test_delete_multi(region):
+    side_effects = []
+    @region.cache_multi_on_arguments()
+    def fn(*args):
+        side_effects.append(args)
+        return [arg + 1 for arg in args]
+
+    assert fn(1, 2, 3) == [2, 3, 4]
+    fn.invalidate(1, 2, 3)
+    assert fn(1, 2, 3) == [2, 3, 4]
+    assert side_effects == [(1, 2, 3), (1, 2, 3)]
 
 
 @pytest.mark.parametrize('backend_name', ['paylogic.raw_fs_backend'])
