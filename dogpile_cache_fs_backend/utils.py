@@ -55,12 +55,6 @@ def without_suffixes(string, suffixes):
     return string
 
 
-def sha256_mangler(key):
-    if isinstance(key, six.text_type):
-        key = key.encode('utf-8')
-    return hashlib.sha256(key).hexdigest()
-
-
 def _key_to_offset(key, start=0, end=sys.maxsize):
     # Map any string to randomly distributed integers between 0 and max
     hash_ = hashlib.sha1(key.encode('utf-8')).digest()
