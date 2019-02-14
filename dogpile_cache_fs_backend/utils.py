@@ -3,29 +3,28 @@ import errno
 import hashlib
 import os
 import sys
+import threading
 import warnings
 
 from dogpile.util import NameRegistry
 
 
-def _remove(file_path):
+def remove_or_warn(file_path):
     try:
         os.remove(file_path)
     except (IOError, OSError):
         warnings.warn('Cannot remove file {}'.format(file_path))
 
 
-def _ensure_dir(path):
+def ensure_dir(path):
     try:
         os.makedirs(path)
     except OSError as error:
         if error.errno != errno.EEXIST:
             raise
-    except (OSError, IOError):
-        warnings.warn('Cannot create directory {}'.format(path))
 
 
-def _stat(file_path):
+def stat_or_warn(file_path):
     try:
         return os.stat(file_path)
     except (IOError, OSError):

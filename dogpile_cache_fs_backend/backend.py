@@ -18,7 +18,7 @@ from shutil import copyfileobj
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 
 from . import registry
-from .utils import _remove, _ensure_dir, _stat, _get_size, _get_last_modified, without_suffixes, _key_to_offset
+from . import utils
 
 __all__ = ['RawFSBackend', 'GenericFSBackend']
 
@@ -75,10 +75,10 @@ class RawFSBackend(CacheBackend):
         self.base_dir = os.path.abspath(
             os.path.normpath(arguments['base_dir'])
         )
-        _ensure_dir(self.base_dir)
+        utils.ensure_dir(self.base_dir)
 
         self.values_dir = os.path.join(self.base_dir, 'values')
-        _ensure_dir(self.values_dir)
+        utils.ensure_dir(self.values_dir)
 
         self.dogpile_lock_path = os.path.join(self.base_dir, 'dogpile.lock')
         self.rw_lock_path = os.path.join(self.base_dir, 'rw.lock')
@@ -89,11 +89,11 @@ class RawFSBackend(CacheBackend):
         self.distributed_lock = arguments.get('distributed_lock', True)
 
     def _get_rw_lock(self, key):
-        identifier = (self.rw_lock_path, _key_to_offset(key))
+        identifier = (self.rw_lock_path, utils._key_to_offset(key))
         return registry.locks.get(identifier)
 
     def _get_dogpile_lock(self, key):
-        identifier = (self.dogpile_lock_path, _key_to_offset(key))
+        identifier = (self.dogpile_lock_path, utils._key_to_offset(key))
         return registry.locks.get(identifier)
 
     def get_mutex(self, key):
@@ -116,7 +116,8 @@ class RawFSBackend(CacheBackend):
             if not os.path.exists(file_path_payload) or not os.path.exists(file_path_metadata):
                 return NO_VALUE
             if self.expiration_time is not None:
-                if _get_last_modified(_stat(file_path_payload)) < now_timestamp - self.expiration_time.total_seconds():
+                last_modified_timestamp = utils._get_last_modified(utils.stat_or_warn(file_path_payload))
+                if last_modified_timestamp < now_timestamp - self.expiration_time.total_seconds():
                     return NO_VALUE
 
             with open(file_path_metadata, 'rb') as i:
@@ -144,7 +145,8 @@ class RawFSBackend(CacheBackend):
 
         original_file_offset = payload.tell()
         # TODO: name can be a file descriptor, fix it
-        if self.file_movable and hasattr(payload, 'name') and os.path.exists(payload.name):
+        file_exists = hasattr(payload, 'name') and not isinstance(payload.name, int) and os.path.exists(payload.name)
+        if self.file_movable and file_exists:
             payload_file_path = payload.name
         else:
             payload.seek(0)
@@ -181,8 +183,8 @@ class RawFSBackend(CacheBackend):
             self.delete(key)
 
     def _delete_key_files(self, key):
-        _remove(self._file_path_payload(key))
-        _remove(self._file_path_metadata(key))
+        utils.remove_or_warn(self._file_path_payload(key))
+        utils.remove_or_warn(self._file_path_metadata(key))
 
     def _list_keys_with_desc(self):
         suffixes = ['.payload', '.metadata', '.type']
@@ -191,20 +193,20 @@ class RawFSBackend(CacheBackend):
             if any(file_name.endswith(s) for s in suffixes)
         ]
         files_with_stats = {
-            f: _stat(os.path.join(self.values_dir, f)) for f in files
+            f: utils.stat_or_warn(os.path.join(self.values_dir, f)) for f in files
         }
 
         keys = set(
-            without_suffixes(f, suffixes)
+            utils.without_suffixes(f, suffixes)
             for f in files
         )
 
         return {
             key: {
-                'last_modified': _get_last_modified(files_with_stats.get(key + '.payload', None)),
+                'last_modified': utils._get_last_modified(files_with_stats.get(key + '.payload', None)),
                 'size': (
-                    _get_size(files_with_stats.get(key + '.payload'))
-                    + _get_size(files_with_stats.get(key + '.metadata'))
+                    utils._get_size(files_with_stats.get(key + '.payload'))
+                    + utils._get_size(files_with_stats.get(key + '.metadata'))
                 ),
             }
             for key in keys

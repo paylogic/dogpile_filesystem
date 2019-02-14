@@ -9,13 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 class RangedFileReentrantLock(object):
-    def __init__(self, file_, offset):
-        if file_ is None:
+    def __init__(self, file, offset):
+        if file is None:
             raise ValueError('file parameter cannot be None')
         if offset is None:
             raise ValueError('offset parameter cannot be None')
         self._offset = offset
-        self._file = file_
+        self._file = file
         self._thread_lock = threading.RLock()
         self._counter = 0
         self._pid = os.getpid()
