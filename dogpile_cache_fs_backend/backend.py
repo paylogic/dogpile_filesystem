@@ -123,8 +123,7 @@ class RawFSBackend(CacheBackend):
                 metadata = pickle.load(i)
 
             file = io.open(file_path_payload, 'rb')
-            if metadata.original_file_offset is not None:
-                file.seek(metadata.original_file_offset, 0)
+            file.seek(metadata.original_file_offset, 0)
             if metadata.dogpile_metadata is not None:
                 return CachedValue(
                     file,
