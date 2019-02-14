@@ -69,10 +69,13 @@ class ProcessLocalRegistry(object):
         self._pid = None
         self.creator = creator
         self.registry = None
+        self._lock = threading.Lock()
 
     def get(self, identifier, *args, **kwargs):
         current_pid = os.getpid()
-        # TODO: Make this thread safe
         if self._pid != current_pid:
-            self._pid, self.registry = current_pid, NameRegistry(creator=self.creator)
+            with self._lock:
+                # Let's check it again, another thread may have fixed it before I got the lock
+                if self._pid != current_pid:
+                    self._pid, self.registry = current_pid, NameRegistry(creator=self.creator)
         return self.registry.get(identifier, *args, **kwargs)
