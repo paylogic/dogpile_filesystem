@@ -4,4 +4,6 @@ flake8
 tox
 twine
 
+mock
 pytest
+pytest-cov
