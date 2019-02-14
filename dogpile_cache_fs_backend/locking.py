@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 class RangedFileReentrantLock(object):
     def __init__(self, file_, offset):
         if file_ is None:
-            raise TypeError('file parameter cannot be None')
+            raise ValueError('file parameter cannot be None')
+        if offset is None:
+            raise ValueError('offset parameter cannot be None')
         self._offset = offset
         self._file = file_
         self._thread_lock = threading.RLock()
@@ -43,10 +45,11 @@ class RangedFileReentrantLock(object):
             try:
                 logger.debug('lockf({self._file.name}, pid={self._pid}, blocking={blocking}, '
                              'offset={self._offset})'.format(self=self, blocking=blocking))
-                if self._offset is not None:
-                    self._module.lockf(self._file, lockflag, 1, self._offset)
-                else:
-                    self._module.lockf(self._file, lockflag)
+                self._module.lockf(self._file, lockflag, 1, self._offset)
+                # if self._offset is not None:
+                #     self._module.lockf(self._file, lockflag, 1, self._offset)
+                # else:
+                #     self._module.lockf(self._file, lockflag)
                 logger.debug('!lockf({self._file.name}, pid={self._pid}, blocking={blocking}, '
                              'offset={self._offset})'.format(self=self, blocking=blocking))
             except IOError as e:
@@ -70,10 +73,11 @@ class RangedFileReentrantLock(object):
             logger.debug('unlockf({}, offset={})'.format(
                 getattr(self._file, 'name', self._file), self._offset
             ))
-            if self._offset is not None:
-                self._module.lockf(self._file, self._module.LOCK_UN, 1, self._offset)
-            else:
-                self._module.lockf(self._file, self._module.LOCK_UN)
+            self._module.lockf(self._file, self._module.LOCK_UN, 1, self._offset)
+            # if self._offset is not None:
+            #     self._module.lockf(self._file, self._module.LOCK_UN, 1, self._offset)
+            # else:
+            #     self._module.lockf(self._file, self._module.LOCK_UN)
         finally:
             # DO NOT assign self._file to None. Otherwise in case this object is not dereferenced, nobody else can do
             # acquire on it after the last release.
