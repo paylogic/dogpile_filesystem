@@ -28,7 +28,6 @@ setup(
     description="File System Backend for Dogpile Cache",
     install_requires=[
         'dogpile.cache',
-        'six',
     ],
     license="MIT license",
     long_description=readme + '\n\n' + history,
