@@ -6,12 +6,19 @@ python:
   - 3.5
   - 3.4
   - 2.7
+env:
+  matrix:
+  - COVERALLS_PARALLEL=true
+  global:
+    secure: MYuGqVU5o2otlOU9GAeSIxQKPIBZnNBbkEAaSga3wbyneic8W5ve8dy/GQsRERTLjQf5Rv1DlQHZ5sO+iSSp2W+eD9lRj2Bhc1WDFOrjVe/+02s5+LB6qhIwKWLGGCV4SjJ3KBamUCfmg5cB1HjSSe/9M1zPgCqBomg8vzalSoC1o934ydZSxQOQOCrzhunH7rC3jYADkulLg9IGFnZ7JQ4GzkyMPMwP4rYmAh/OGpz1VdEjkRTbQBP0kbAEh9bYX0EFtZkdTCBFW+6xbdvvvAscYXGPPT9PQlDcU6mlQpKaOWGXNf5F0hyYPKIVY1J88bTimz+rOpTu5bEvWGOjkTjrbJZsWGNTYO8iceWZhkvS/pm/ehJeC5rhJ12nDvCWfUFG6DRrqjl5dl4AmUFNFLjM8+TUWdXvkJ8cA2nsE6xRbvgyNjLH9zbkYDsA1phR5FKXYxIis9eNGf/KPXxzf1/JP0NYnc20wixOBQucY5mQR0k0f1lQaVMXtlm96w2nfUpXzzzJ70rYz4pqNo/3PGUuff31nMwTOsbr77ujDgBymmwTWh4Rp6BSVlrE5+Q+B82Wr//UP8IVZhOzpHe6v5QYCoUVWCPOoCL/0xGvtBbcNqyFEz4u/89DteMGImtfxOZFY0wzseFSxC39IRbY2qRWharv9mvy8kKnzBjUmf0=
 
 # Command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install: pip install -U tox-travis
+install: pip install -U tox-travis coveralls
 
 # Command to run tests, e.g. python setup.py test
 script: tox
+
+after_success: coveralls
 
 # Assuming you have installed the travis-ci CLI tool, after you
 # create the Github repo and add it to Travis, run the
