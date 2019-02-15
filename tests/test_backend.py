@@ -103,7 +103,7 @@ def test_delete_multi(region):
     assert side_effects == [(1, 2, 3), (1, 2, 3)]
 
 
-@pytest.mark.parametrize('backend_name', ['paylogic.raw_fs_backend'])
+@pytest.mark.parametrize('backend_name', ['paylogic.raw_filesystem'])
 @pytest.mark.parametrize('backend_file_movable', [False])
 @pytest.mark.parametrize('file_creator', [
     pytest.param(lambda _: tempfile.NamedTemporaryFile(delete=False), id='tempfile.NamedTemporaryFile'),
@@ -133,7 +133,7 @@ def test_file_not_movable_usage(region, tmpdir, file_creator):
     assert side_effects == ['foo']
 
 
-@pytest.mark.parametrize('backend_name', ['paylogic.raw_fs_backend'])
+@pytest.mark.parametrize('backend_name', ['paylogic.raw_filesystem'])
 @pytest.mark.parametrize('backend_file_movable', [True])
 @pytest.mark.parametrize('file_creator', [
     pytest.param(lambda _: tempfile.NamedTemporaryFile(delete=False), id='tempfile.NamedTemporaryFile'),

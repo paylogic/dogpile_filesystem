@@ -4,7 +4,7 @@ import pytest
 
 @pytest.fixture
 def backend_name():
-    return 'paylogic.generic_fs_backend'
+    return 'paylogic.filesystem'
 
 
 @pytest.fixture

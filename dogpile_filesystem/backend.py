@@ -34,13 +34,13 @@ class RawFSBackend(CacheBackend):
         from dogpile.cache import make_region
 
         region = make_region().configure(
-            'paylogic.files_backend',
+            'paylogic.raw_filesystem',
             expiration_time = datetime.timedelta(seconds=30),
             arguments = {
                 "base_dir": "/path/to/cachedir",
                 "file_movable": True,
                 "cache_size": 1024*1024*1024,  # 1 Gb
-                "expiration_time: datetime.timedelta(seconds=30),
+                "expiration_time": datetime.timedelta(seconds=30),
             }
         )
 
@@ -253,13 +253,12 @@ class GenericFSBackend(RawFSBackend):
         from dogpile.cache import make_region
 
         region = make_region().configure(
-            'paylogic.files_backend',
+            'paylogic.filesystem',
             expiration_time = datetime.timedelta(seconds=30),
             arguments = {
                 "base_dir": "/path/to/cachedir",
-                "file_movable": True,
                 "cache_size": 1024*1024*1024,  # 1 Gb
-                "expiration_time: datetime.timedelta(seconds=30),
+                "expiration_time": datetime.timedelta(seconds=30),
             }
         )
 

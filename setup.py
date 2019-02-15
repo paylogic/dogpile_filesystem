@@ -41,8 +41,8 @@ setup(
     zip_safe=False,
     entry_points={
         'dogpile.cache': [
-            'paylogic.generic_fs_backend = dogpile_filesystem.backend:GenericFSBackend',
-            'paylogic.raw_fs_backend = dogpile_filesystem.backend:RawFSBackend',
+            'paylogic.filesystem = dogpile_filesystem.backend:GenericFSBackend',
+            'paylogic.raw_filesystem = dogpile_filesystem.backend:RawFSBackend',
         ]
     },
 )
