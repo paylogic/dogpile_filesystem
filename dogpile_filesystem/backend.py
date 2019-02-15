@@ -144,8 +144,7 @@ class RawFSBackend(CacheBackend):
             payload, dogpile_metadata = value, None
 
         original_file_offset = payload.tell()
-        file_exists = hasattr(payload, 'name') and not isinstance(payload.name, int) and os.path.exists(payload.name)
-        if self.file_movable and file_exists:
+        if self.file_movable:
             payload_file_path = payload.name
         else:
             payload.seek(0)

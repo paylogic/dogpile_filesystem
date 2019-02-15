@@ -140,7 +140,6 @@ def test_file_not_movable_usage(region, tmpdir, file_creator):
     pytest.param(lambda tmpdir: open(str(tmpdir / 'foo'), 'w+b'), id='open'),
     pytest.param(lambda tmpdir: io.open(str(tmpdir / 'foo'), 'w+b'), id='io.open'),
     pytest.param(lambda tmpdir: (tmpdir / 'foo').open('w+b'), id='tmpdir.open'),
-    pytest.param(lambda tmpdir: os.fdopen(os.open(str(tmpdir / 'foo'), os.O_RDWR | os.O_CREAT), 'w+b'), id='os.fdopen'),
 ])
 def test_file_movable_usage(region, tmpdir, file_creator):
     side_effects = []
