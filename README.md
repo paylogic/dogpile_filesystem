@@ -19,7 +19,7 @@ The lockf system call allows to allocate an arbitrary number of locks using the 
 ## Installation
 Install with pip:
 
-`pip install dogpile_filesystem`
+`$ pip install dogpile_filesystem`
 
 ## Usage
 ### Generic variant
@@ -78,3 +78,15 @@ def big_file_operation(args):
     return f
 ```
 
+## Development
+Install the dev requirements and the project in development mode:
+
+`$ pip install -r requirements_dev.txt -e .`
+
+Run tests:
+
+`$ pytest tests`
+
+Optionally run tests for all supported configurations:
+
+`$ tox`
