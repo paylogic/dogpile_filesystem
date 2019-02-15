@@ -15,7 +15,7 @@ Types of Contributions
 Report Bugs
 ~~~~~~~~~~~
 
-Report bugs at https://github.com/youtux/dogpile_cache_file_system_backend/issues.
+Report bugs at https://github.com/paylogic/dogpile_filesystem/issues.
 
 If you are reporting a bug, please include:
 
@@ -45,7 +45,7 @@ articles, and such.
 Submit Feedback
 ~~~~~~~~~~~~~~~
 
-The best way to send feedback is to file an issue at https://github.com/youtux/dogpile_cache_file_system_backend/issues.
+The best way to send feedback is to file an issue at https://github.com/paylogic/dogpile_filesytem/issues.
 
 If you are proposing a feature:
 
@@ -57,17 +57,17 @@ If you are proposing a feature:
 Get Started!
 ------------
 
-Ready to contribute? Here's how to set up `dogpile_cache_file_system_backend` for local development.
+Ready to contribute? Here's how to set up `dogpile_filesystem` for local development.
 
-1. Fork the `dogpile_cache_file_system_backend` repo on GitHub.
+1. Fork the `dogpile_filesystem` repo on GitHub.
 2. Clone your fork locally::
 
-    $ git clone git@github.com:your_name_here/dogpile_cache_file_system_backend.git
+    $ git clone git@github.com:your_name_here/dogpile_filesystem.git
 
 3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
 
-    $ mkvirtualenv dogpile_cache_file_system_backend
-    $ cd dogpile_cache_file_system_backend/
+    $ mkvirtualenv dogpile_filesystem
+    $ cd dogpile_filesystem/
     $ python setup.py develop
 
 4. Create a branch for local development::
@@ -79,7 +79,7 @@ Ready to contribute? Here's how to set up `dogpile_cache_file_system_backend` fo
 5. When you're done making changes, check that your changes pass flake8 and the
    tests, including testing other Python versions with tox::
 
-    $ flake8 dogpile_cache_file_system_backend tests
+    $ flake8 dogpile_filesystem tests
     $ python setup.py test or py.test
     $ tox
 
@@ -103,15 +103,8 @@ Before you submit a pull request, check that it meets these guidelines:
    your new functionality into a function with a docstring, and add the
    feature to the list in README.rst.
 3. The pull request should work for Python 2.7, 3.4, 3.5 and 3.6, and for PyPy. Check
-   https://travis-ci.org/youtux/dogpile_cache_file_system_backend/pull_requests
+   https://travis-ci.org/paylogic/dogpile_filesystem/pull_requests
    and make sure that the tests pass for all supported Python versions.
-
-Tips
-----
-
-To run a subset of tests::
-
-$ py.test tests.test_dogpile_cache_file_system_backend
 
 
 Deploying

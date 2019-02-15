@@ -8,7 +8,7 @@ import mock as mock
 import pytest
 from dogpile.cache.api import NO_VALUE
 
-from dogpile_cache_fs_backend import backend
+from dogpile_filesystem import backend
 
 
 def test_normal_usage(region):
@@ -276,6 +276,6 @@ def test_cleanup_does_not_get_stuck_in_case_files_are_not_deletable(region):
         assert fn('baz', 10000)
         assert m.called
 
-    with mock.patch('dogpile_cache_fs_backend.utils.remove_or_warn', return_value=None) as m:
+    with mock.patch('dogpile_filesystem.utils.remove_or_warn', return_value=None) as m:
         region.backend.prune()
         assert m.called

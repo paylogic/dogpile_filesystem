@@ -4,7 +4,7 @@ import threading
 
 import pytest
 
-from dogpile_cache_fs_backend import registry
+from dogpile_filesystem import registry
 
 
 def test_dogpile_lock_threaded(region):
@@ -87,7 +87,7 @@ def test_can_acquire_n_locks(tmpdir, n_locks, n_files):
 
 # TODO: Refactor this mess
 def _test_avoid_deadlock_process(queue, result_q):
-    from dogpile_cache_fs_backend import registry
+    from dogpile_filesystem import registry
 
     locks = []
     while True:

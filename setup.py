@@ -5,10 +5,10 @@
 
 from setuptools import setup, find_packages
 
-with open('README.rst') as readme_file:
+with open('README.md') as readme_file:
     readme = readme_file.read()
 
-with open('HISTORY.rst') as history_file:
+with open('HISTORY.md') as history_file:
     history = history_file.read()
 
 setup(
@@ -32,17 +32,17 @@ setup(
     license="MIT license",
     long_description=readme + '\n\n' + history,
     include_package_data=True,
-    keywords='dogpile_cache_fs_backend',
-    name='dogpile_cache_fs_backend',
-    packages=find_packages(include=['dogpile_cache_fs_backend']),
+    keywords='dogpile_filesystem',
+    name='dogpile_filesystem',
+    packages=find_packages(include=['dogpile_filesystem']),
     test_suite='tests',
-    url='https://github.com/youtux/dogpile_cache_fs_backend',
+    url='https://github.com/paylogic/dogpile_filesystem',
     version='0.1.0',
     zip_safe=False,
     entry_points={
         'dogpile.cache': [
-            'paylogic.generic_fs_backend = dogpile_cache_fs_backend.backend:GenericFSBackend',
-            'paylogic.raw_fs_backend = dogpile_cache_fs_backend.backend:RawFSBackend',
+            'paylogic.generic_fs_backend = dogpile_filesystem.backend:GenericFSBackend',
+            'paylogic.raw_fs_backend = dogpile_filesystem.backend:RawFSBackend',
         ]
     },
 )
