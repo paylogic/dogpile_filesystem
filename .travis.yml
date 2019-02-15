@@ -20,18 +20,3 @@ after_success: coveralls
 notifications:
   webhooks:
     - "https://coveralls.io/webhook"  # Tell coveralls that this build has finished. Necessary when using PARALLEL mode
-
-# Assuming you have installed the travis-ci CLI tool, after you
-# create the Github repo and add it to Travis, run the
-# following command to finish PyPI deployment setup:
-# $ travis encrypt --add deploy.password
-#deploy:
-#  provider: pypi
-#  distributions: sdist bdist_wheel
-#  user: youtux
-#  password:
-#    secure: PLEASE_REPLACE_ME
-#  on:
-#    tags: true
-#    repo: paylogic/dogpile_filesystem
-#    python: 3.6
