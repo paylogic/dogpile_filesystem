@@ -25,7 +25,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
     ],
-    description="File System Backend for Dogpile Cache",
+    description="File System Backends for Dogpile Cache",
     install_requires=[
         'dogpile.cache',
     ],
