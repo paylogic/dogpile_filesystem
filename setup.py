@@ -39,7 +39,7 @@ setup(
     packages=find_packages(include=['dogpile_filesystem']),
     test_suite='tests',
     url='https://github.com/paylogic/dogpile_filesystem',
-    version='0.1.0',
+    version='0.1.1',
     zip_safe=False,
     entry_points={
         'dogpile.cache': [
