@@ -1,8 +1,9 @@
 # File System Backends for Dogpile Cache
 
-
+![PyPI](https://img.shields.io/pypi/v/dogpile_filesystem.svg?style=flat)
 [![Build Status](https://travis-ci.org/paylogic/dogpile_filesystem.svg?branch=master)](https://travis-ci.org/paylogic/dogpile_filesystem)
 [![Coverage Status](https://coveralls.io/repos/github/paylogic/dogpile_filesystem/badge.svg?branch=master)](https://coveralls.io/github/paylogic/dogpile_filesystem?branch=master)
+![](https://img.shields.io/pypi/pyversions/dogpile_filesystem.svg?style=flat)
 
 
 
