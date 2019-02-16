@@ -16,7 +16,9 @@ env:
 install: pip install -U tox-travis coveralls
 
 # Command to run tests, e.g. python setup.py test
-script: tox
+script:
+  - echo TRAVIS_PYTHON_VERSION:$TRAVIS_PYTHON_VERSION
+  - tox
 
 after_success: coveralls
 notifications:
