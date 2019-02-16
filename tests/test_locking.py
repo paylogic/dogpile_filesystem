@@ -60,17 +60,6 @@ def test_dogpile_lock_processes(region):
     assert not mutex.is_locked()
 
 
-def test_locks_are_released_on_dereference(region):
-    mutex = region.backend.get_mutex('asd')
-    mutex.acquire()
-    del mutex
-
-    mutex = region.backend.get_mutex('asd')
-    assert not mutex.is_locked()
-    del mutex
-    pass
-
-
 @pytest.mark.parametrize('n_locks', [1, 2, 1000])
 @pytest.mark.parametrize('n_files', [1, 2, 10])
 def test_can_acquire_n_locks(tmpdir, n_locks, n_files):
