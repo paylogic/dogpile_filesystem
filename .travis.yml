@@ -7,6 +7,8 @@ python:
   - 3.6
   - 3.5
   - 2.7
+  - pypy27
+  - pypy35
 env:
   - COVERALLS_PARALLEL=true
 
