@@ -6,3 +6,4 @@ twine
 
 mock
 pytest
+coverage
