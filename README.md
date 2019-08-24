@@ -5,6 +5,7 @@
 [![codecov](https://codecov.io/gh/paylogic/dogpile_filesystem/branch/master/graph/badge.svg)](https://codecov.io/gh/paylogic/dogpile_filesystem)
 ![](https://img.shields.io/pypi/pyversions/dogpile_filesystem.svg?style=flat)
 ![](https://img.shields.io/pypi/implementation/dogpile_filesystem.svg?style=flat)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 
 
