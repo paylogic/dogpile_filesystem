@@ -3,22 +3,18 @@
 language: python
 dist: xenial
 python:
-  - 3.7
-  - 3.6
-  - 3.5
-  - 2.7
+  - 3.8-dev
+  - "3.7"
+  - "3.6"
+  - "3.5"
+  - "2.7"
   - pypy2.7-6.0
   - pypy3.5-6.0
-env:
-  - COVERALLS_PARALLEL=true
 
 # Command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install: pip install -U tox-travis coveralls
+install: pip install -U tox-travis codecov
 
 # Command to run tests, e.g. python setup.py test
 script: tox
 
-after_success: coveralls
-notifications:
-  webhooks:
-    - "https://coveralls.io/webhook"  # Tell coveralls that this build has finished. Necessary when using PARALLEL mode
+after_success: codecov

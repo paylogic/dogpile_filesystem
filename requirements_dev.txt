@@ -6,4 +6,4 @@ twine
 
 mock
 pytest
-pytest-cov
+coverage
