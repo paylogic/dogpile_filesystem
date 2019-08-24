@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/dogpile_filesystem.svg?style=flat)](https://pypi.org/project/dogpile-filesystem/)
 [![Build Status](https://travis-ci.org/paylogic/dogpile_filesystem.svg?branch=master)](https://travis-ci.org/paylogic/dogpile_filesystem)
-[![Coverage Status](https://coveralls.io/repos/github/paylogic/dogpile_filesystem/badge.svg?branch=master)](https://coveralls.io/github/paylogic/dogpile_filesystem?branch=master)
+[![codecov](https://codecov.io/gh/paylogic/dogpile_filesystem/branch/master/graph/badge.svg)](https://codecov.io/gh/paylogic/dogpile_filesystem)
 ![](https://img.shields.io/pypi/pyversions/dogpile_filesystem.svg?style=flat)
 ![](https://img.shields.io/pypi/implementation/dogpile_filesystem.svg?style=flat)
 
