@@ -20,9 +20,11 @@ from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 from . import registry
 from . import utils
 
-__all__ = ['RawFSBackend', 'GenericFSBackend']
+__all__ = ["RawFSBackend", "GenericFSBackend"]
 
-Metadata = collections.namedtuple('Metadata', ['original_file_offset', 'dogpile_metadata'])
+Metadata = collections.namedtuple(
+    "Metadata", ["original_file_offset", "dogpile_metadata"]
+)
 
 
 class RawFSBackend(CacheBackend):
@@ -69,24 +71,22 @@ class RawFSBackend(CacheBackend):
 
     @staticmethod
     def key_mangler(key):
-        return hashlib.sha256(key.encode('utf-8')).hexdigest()
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
     def __init__(self, arguments):
-        self.base_dir = os.path.abspath(
-            os.path.normpath(arguments['base_dir'])
-        )
+        self.base_dir = os.path.abspath(os.path.normpath(arguments["base_dir"]))
         utils.ensure_dir(self.base_dir)
 
-        self.values_dir = os.path.join(self.base_dir, 'values')
+        self.values_dir = os.path.join(self.base_dir, "values")
         utils.ensure_dir(self.values_dir)
 
-        self.dogpile_lock_path = os.path.join(self.base_dir, 'dogpile.lock')
-        self.rw_lock_path = os.path.join(self.base_dir, 'rw.lock')
+        self.dogpile_lock_path = os.path.join(self.base_dir, "dogpile.lock")
+        self.rw_lock_path = os.path.join(self.base_dir, "rw.lock")
 
-        self.expiration_time = arguments.get('expiration_time')
-        self.cache_size = arguments.get('cache_size', 1024 * 1024 * 1024)  # 1 Gb
-        self.file_movable = arguments.get('file_movable', False)
-        self.distributed_lock = arguments.get('distributed_lock', True)
+        self.expiration_time = arguments.get("expiration_time")
+        self.cache_size = arguments.get("cache_size", 1024 * 1024 * 1024)  # 1 Gb
+        self.file_movable = arguments.get("file_movable", False)
+        self.distributed_lock = arguments.get("distributed_lock", True)
 
     def _get_rw_lock(self, key):
         identifier = (self.rw_lock_path, utils._key_to_offset(key))
@@ -103,33 +103,37 @@ class RawFSBackend(CacheBackend):
             return None
 
     def _file_path_payload(self, key):
-        return os.path.join(self.values_dir, key + '.payload')
+        return os.path.join(self.values_dir, key + ".payload")
 
     def _file_path_metadata(self, key):
-        return os.path.join(self.values_dir, key + '.metadata')
+        return os.path.join(self.values_dir, key + ".metadata")
 
     def get(self, key):
         now_timestamp = time.time()
         file_path_payload = self._file_path_payload(key)
         file_path_metadata = self._file_path_metadata(key)
         with self._get_rw_lock(key):
-            if not os.path.exists(file_path_payload) or not os.path.exists(file_path_metadata):
+            if not os.path.exists(file_path_payload) or not os.path.exists(
+                file_path_metadata
+            ):
                 return NO_VALUE
             if self.expiration_time is not None:
-                last_modified_timestamp = utils._get_last_modified(utils.stat_or_warn(file_path_payload))
-                if last_modified_timestamp < now_timestamp - self.expiration_time.total_seconds():
+                last_modified_timestamp = utils._get_last_modified(
+                    utils.stat_or_warn(file_path_payload)
+                )
+                if (
+                    last_modified_timestamp
+                    < now_timestamp - self.expiration_time.total_seconds()
+                ):
                     return NO_VALUE
 
-            with open(file_path_metadata, 'rb') as i:
+            with open(file_path_metadata, "rb") as i:
                 metadata = pickle.load(i)
 
-            file = io.open(file_path_payload, 'rb')
+            file = io.open(file_path_payload, "rb")
             file.seek(metadata.original_file_offset, 0)
             if metadata.dogpile_metadata is not None:
-                return CachedValue(
-                    file,
-                    metadata.dogpile_metadata,
-                )
+                return CachedValue(file, metadata.dogpile_metadata)
             return file
 
     def get_multi(self, keys):
@@ -156,8 +160,7 @@ class RawFSBackend(CacheBackend):
             payload_file_path = tmpfile.name
 
         metadata = Metadata(
-            dogpile_metadata=dogpile_metadata,
-            original_file_offset=original_file_offset,
+            dogpile_metadata=dogpile_metadata, original_file_offset=original_file_offset
         )
         with tempfile.NamedTemporaryFile(delete=False) as metadata_file:
             pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
@@ -185,26 +188,26 @@ class RawFSBackend(CacheBackend):
         utils.remove_or_warn(self._file_path_metadata(key))
 
     def _list_keys_with_desc(self):
-        suffixes = ['.payload', '.metadata', '.type']
+        suffixes = [".payload", ".metadata", ".type"]
         files = [
-            file_name for file_name in os.listdir(self.values_dir)
+            file_name
+            for file_name in os.listdir(self.values_dir)
             if any(file_name.endswith(s) for s in suffixes)
         ]
         files_with_stats = {
             f: utils.stat_or_warn(os.path.join(self.values_dir, f)) for f in files
         }
 
-        keys = set(
-            utils.without_suffixes(f, suffixes)
-            for f in files
-        )
+        keys = set(utils.without_suffixes(f, suffixes) for f in files)
 
         return {
             key: {
-                'last_modified': utils._get_last_modified(files_with_stats.get(key + '.payload', None)),
-                'size': (
-                    utils._get_size(files_with_stats.get(key + '.payload'))
-                    + utils._get_size(files_with_stats.get(key + '.metadata'))
+                "last_modified": utils._get_last_modified(
+                    files_with_stats.get(key + ".payload", None)
+                ),
+                "size": (
+                    utils._get_size(files_with_stats.get(key + ".payload"))
+                    + utils._get_size(files_with_stats.get(key + ".metadata"))
                 ),
             }
             for key in keys
@@ -226,19 +229,25 @@ class RawFSBackend(CacheBackend):
 
         if self.expiration_time is not None:
             for key in keys:
-                if keys_with_desc[key]['last_modified'] >= now_timestamp - self.expiration_time.total_seconds():
+                if (
+                    keys_with_desc[key]["last_modified"]
+                    >= now_timestamp - self.expiration_time.total_seconds()
+                ):
                     continue
                 self.attempt_delete_key(key)
                 remaining_keys.discard(key)
 
         keys_by_newest = sorted(
             remaining_keys,
-            key=lambda key: keys_with_desc[key]['last_modified'],
+            key=lambda key: keys_with_desc[key]["last_modified"],
             reverse=True,
         )
         if self.cache_size is None:
             return
-        while sum((keys_with_desc[key]['size'] for key in keys_by_newest), 0) > self.cache_size:
+        while (
+            sum((keys_with_desc[key]["size"] for key in keys_by_newest), 0)
+            > self.cache_size
+        ):
             key = keys_by_newest.pop()
             self.attempt_delete_key(key)
 
@@ -279,7 +288,7 @@ class GenericFSBackend(RawFSBackend):
     """
 
     def __init__(self, arguments):
-        arguments['file_movable'] = True
+        arguments["file_movable"] = True
         super(GenericFSBackend, self).__init__(arguments)
 
     def set(self, key, value):
