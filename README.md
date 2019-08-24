@@ -13,7 +13,7 @@ Filesystem-based backends for dogpile cache.
 The generic variant of the backend, `paylogic.filesystem`, will accept any picklable value and it will store it in the file system.
 
 The raw variant `paylogic.raw_filesystem` will only work with file-like values and it will avoid the pickling phase. This is useful when you are generating a big file and you don't want to keep in memory the contents of this file.
- 
+
 Both variants use [fcntl.lockf](https://docs.python.org/3.7/library/fcntl.html#fcntl.lockf) operations, therefore it is compatible with  UNIX-like systems only.
 The lockf system call allows to allocate an arbitrary number of locks using the same file, avoiding problems that arise when deleting lock files.
 
@@ -62,7 +62,7 @@ region = make_region().configure(
         "file_movable": True,  # Whether the backend can freely move the file.
                                # When True, the backend will move the file to the cache
                                # directory directly using os.rename(file.name).
-                               # When False (default), the content of the file will be copied to 
+                               # When False (default), the content of the file will be copied to
                                # the cache directory.
         "expiration_time": datetime.timedelta(seconds=30),  # Defaults to no expiration
         "distributed_lock": True,  # Defaults to true
