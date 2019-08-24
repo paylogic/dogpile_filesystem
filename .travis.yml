@@ -8,11 +8,11 @@ python:
   - "3.6"
   - "3.5"
   - "2.7"
-  - pypy2.7-6.0
-  - pypy3.5-6.0
+  - pypy
+  - pypy3
 
 # Command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
-install: pip install -U tox-travis codecov
+install: pip install -U tox tox-travis codecov
 
 # Command to run tests, e.g. python setup.py test
 script: tox
