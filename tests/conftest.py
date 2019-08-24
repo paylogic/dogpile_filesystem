@@ -4,7 +4,7 @@ import pytest
 
 @pytest.fixture
 def backend_name():
-    return 'paylogic.filesystem'
+    return "paylogic.filesystem"
 
 
 @pytest.fixture
@@ -41,11 +41,11 @@ def backend_arguments(
     backend_distributed_lock,
 ):
     return {
-        'base_dir': backend_base_dir,
-        'cache_size': backend_cache_size,
-        'expiration_time': backend_expiration_time,
-        'file_movable': backend_file_movable,
-        'distributed_lock': backend_distributed_lock,
+        "base_dir": backend_base_dir,
+        "cache_size": backend_cache_size,
+        "expiration_time": backend_expiration_time,
+        "file_movable": backend_file_movable,
+        "distributed_lock": backend_distributed_lock,
     }
 
 
@@ -56,7 +56,7 @@ def region_expiration_time():
 
 @pytest.fixture
 def region(backend_name, backend_arguments, region_expiration_time):
-    r = dogpile.cache.make_region('test_region')
+    r = dogpile.cache.make_region("test_region")
     r.configure(
         backend=backend_name,
         expiration_time=region_expiration_time,

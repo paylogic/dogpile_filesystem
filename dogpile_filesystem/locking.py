@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 class RangedFileReentrantLock(object):
     def __init__(self, file, offset):
         if file is None:
-            raise ValueError('file parameter cannot be None')
+            raise ValueError("file parameter cannot be None")
         if offset is None:
-            raise ValueError('offset parameter cannot be None')
+            raise ValueError("offset parameter cannot be None")
         self._offset = offset
         self._file = file
         self._thread_lock = threading.RLock()
@@ -26,11 +26,14 @@ class RangedFileReentrantLock(object):
     @util.memoized_property
     def _module(self):
         import fcntl
+
         return fcntl
 
     def _assert_pid(self):
         if os.getpid() != self._pid:
-            raise RuntimeError('Cannot use this lock, since it was created by a different process.')
+            raise RuntimeError(
+                "Cannot use this lock, since it was created by a different process."
+            )
 
     def acquire(self, blocking=True):
         self._assert_pid()
@@ -43,15 +46,19 @@ class RangedFileReentrantLock(object):
 
         if self._counter == 0:
             try:
-                logger.debug('lockf({self._file.name}, pid={self._pid}, blocking={blocking}, '
-                             'offset={self._offset})'.format(self=self, blocking=blocking))
+                logger.debug(
+                    "lockf({self._file.name}, pid={self._pid}, blocking={blocking}, "
+                    "offset={self._offset})".format(self=self, blocking=blocking)
+                )
                 self._module.lockf(self._file, lockflag, 1, self._offset)
                 # if self._offset is not None:
                 #     self._module.lockf(self._file, lockflag, 1, self._offset)
                 # else:
                 #     self._module.lockf(self._file, lockflag)
-                logger.debug('!lockf({self._file.name}, pid={self._pid}, blocking={blocking}, '
-                             'offset={self._offset})'.format(self=self, blocking=blocking))
+                logger.debug(
+                    "!lockf({self._file.name}, pid={self._pid}, blocking={blocking}, "
+                    "offset={self._offset})".format(self=self, blocking=blocking)
+                )
             except IOError as e:
                 self._thread_lock.release()
                 if e.errno in (errno.EACCES, errno.EAGAIN):
@@ -70,9 +77,11 @@ class RangedFileReentrantLock(object):
             return
 
         try:
-            logger.debug('unlockf({}, offset={})'.format(
-                getattr(self._file, 'name', self._file), self._offset
-            ))
+            logger.debug(
+                "unlockf({}, offset={})".format(
+                    getattr(self._file, "name", self._file), self._offset
+                )
+            )
             self._module.lockf(self._file, self._module.LOCK_UN, 1, self._offset)
             # if self._offset is not None:
             #     self._module.lockf(self._file, self._module.LOCK_UN, 1, self._offset)

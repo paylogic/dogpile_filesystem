@@ -13,7 +13,7 @@ def remove_or_warn(file_path):
     try:
         os.remove(file_path)
     except (IOError, OSError):
-        warnings.warn('Cannot remove file {}'.format(file_path))
+        warnings.warn("Cannot remove file {}".format(file_path))
 
 
 def ensure_dir(path):
@@ -28,7 +28,7 @@ def stat_or_warn(file_path):
     try:
         return os.stat(file_path)
     except (IOError, OSError):
-        warnings.warn('Cannot stat file {}'.format(file_path))
+        warnings.warn("Cannot stat file {}".format(file_path))
         return None
 
 
@@ -47,14 +47,14 @@ def _get_last_modified(stat):
 def without_suffixes(string, suffixes):
     for suffix in suffixes:
         if string.endswith(suffix):
-            return string[:-len(suffix)]
+            return string[: -len(suffix)]
     return string
 
 
 def _key_to_offset(key, start=0, end=sys.maxsize):
     # Map any string to randomly distributed integers between 0 and max
-    hash_ = hashlib.sha1(key.encode('utf-8')).digest()
-    offset_from_0 = (int(codecs.encode(hash_, 'hex'), 16) % (end - start))
+    hash_ = hashlib.sha1(key.encode("utf-8")).digest()
+    offset_from_0 = int(codecs.encode(hash_, "hex"), 16) % (end - start)
     return start + offset_from_0
 
 
@@ -77,5 +77,8 @@ class ProcessLocalRegistry(object):
             with self._lock:
                 # Let's check it again, another thread may have fixed it before I got the lock
                 if self._pid != current_pid:
-                    self._pid, self.registry = current_pid, NameRegistry(creator=self.creator)
+                    self._pid, self.registry = (
+                        current_pid,
+                        NameRegistry(creator=self.creator),
+                    )
         return self.registry.get(identifier, *args, **kwargs)

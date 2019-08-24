@@ -5,7 +5,7 @@ from .utils import ProcessLocalRegistry
 
 logger = logging.getLogger(__name__)
 
-file_lock = ProcessLocalRegistry(lambda path: open(path, 'w+b'))
+file_lock = ProcessLocalRegistry(lambda path: open(path, "w+b"))
 
 
 def _lock_creator(identifier):
