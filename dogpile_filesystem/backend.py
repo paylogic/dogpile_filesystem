@@ -80,8 +80,8 @@ class RawFSBackend(CacheBackend):
         self.values_dir = os.path.join(self.base_dir, "values")
         utils.ensure_dir(self.values_dir)
 
-        self.tmp_dir = os.path.join(self.base_dir, "tmp")
-        utils.ensure_dir(self.tmp_dir)
+        self.temp_dir = os.path.join(self.base_dir, "tmp")
+        utils.ensure_dir(self.temp_dir)
 
         self.dogpile_lock_path = os.path.join(self.base_dir, "dogpile.lock")
         self.rw_lock_path = os.path.join(self.base_dir, "rw.lock")
@@ -156,7 +156,7 @@ class RawFSBackend(CacheBackend):
         else:
             payload.seek(0)
             try:
-                with tempfile.NamedTemporaryFile(delete=False, dir=self.tmp_dir) as tmpfile:
+                with tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir) as tmpfile:
                     copyfileobj(payload, tmpfile, length=1024 * 1024)
             finally:
                 payload.seek(original_file_offset, 0)
@@ -165,7 +165,7 @@ class RawFSBackend(CacheBackend):
         metadata = Metadata(
             dogpile_metadata=dogpile_metadata, original_file_offset=original_file_offset
         )
-        with tempfile.NamedTemporaryFile(delete=False, dir=self.tmp_dir) as metadata_file:
+        with tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir) as metadata_file:
             pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
 
         with self._get_rw_lock(key):
@@ -295,7 +295,7 @@ class GenericFSBackend(RawFSBackend):
         super(GenericFSBackend, self).__init__(arguments)
 
     def set(self, key, value):
-        with tempfile.NamedTemporaryFile(delete=False, dir=self.tmp_dir) as value_file:
+        with tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir) as value_file:
             pickle.dump(value, value_file, pickle.HIGHEST_PROTOCOL)
             value_file.seek(0)
             value_file.flush()
