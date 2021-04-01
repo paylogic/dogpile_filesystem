@@ -6,6 +6,7 @@ Provides backends that deal with local filesystem access.
 
 """
 import collections
+import fcntl
 import hashlib
 import io
 import os
@@ -21,6 +22,8 @@ from . import registry
 from . import utils
 
 __all__ = ["RawFSBackend", "GenericFSBackend"]
+
+from .utils import LockedNamedTemporaryFile
 
 Metadata = collections.namedtuple(
     "Metadata", ["original_file_offset", "dogpile_metadata"]
@@ -150,14 +153,16 @@ class RawFSBackend(CacheBackend):
         else:
             payload, dogpile_metadata = value, None
 
+        tmpfile_cleaner = lambda: None
         original_file_offset = payload.tell()
         if self.file_movable:
             payload_file_path = payload.name
         else:
             payload.seek(0)
             try:
-                with tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir) as tmpfile:
-                    copyfileobj(payload, tmpfile, length=1024 * 1024)
+                tmpfile, tmpfile_cleaner = LockedNamedTemporaryFile(delete=False, dir=self.temp_dir)
+                fcntl.flock(tmpfile.fileno(), fcntl.LOCK_EX)  # Need the lock until after os.rename below
+                copyfileobj(payload, tmpfile, length=1024 * 1024)
             finally:
                 payload.seek(original_file_offset, 0)
             payload_file_path = tmpfile.name
@@ -165,14 +170,18 @@ class RawFSBackend(CacheBackend):
         metadata = Metadata(
             dogpile_metadata=dogpile_metadata, original_file_offset=original_file_offset
         )
-        with tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir) as metadata_file:
-            pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
+        metadata_file, metadata_file_cleaner = LockedNamedTemporaryFile(delete=False, dir=self.temp_dir)
+        fcntl.flock(metadata_file.fileno(), fcntl.LOCK_EX)  # Need the lock until after os.rename below
+        pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
 
         with self._get_rw_lock(key):
             os.rename(metadata_file.name, self._file_path_metadata(key))
             os.rename(payload_file_path, self._file_path_payload(key))
             os.utime(self._file_path_metadata(key), (now_timestamp, now_timestamp))
             os.utime(self._file_path_payload(key), (now_timestamp, now_timestamp))
+
+        metadata_file_cleaner()
+        tmpfile_cleaner()
 
     def set_multi(self, mapping):
         for key, value in mapping.items():
@@ -253,6 +262,17 @@ class RawFSBackend(CacheBackend):
         ):
             key = keys_by_newest.pop()
             self.attempt_delete_key(key)
+
+        # Cleanup abandoned tmpfiles
+        for file in os.listdir(self.temp_dir):
+            try:
+                with open(file, 'rb') as fp:
+                    fcntl.flock(fp.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
+                os.remove(file)
+            except OSError as e:
+                pass  # Active tempfile
+            finally:
+                fcntl.flock(fp.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
 
 
 class GenericFSBackend(RawFSBackend):

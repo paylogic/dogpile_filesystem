@@ -3,9 +3,12 @@ import errno
 import hashlib
 import os
 import sys
+import tempfile
 import threading
 import warnings
+from contextlib import contextmanager
 
+import fcntl
 from dogpile.util import NameRegistry
 
 
@@ -56,6 +59,17 @@ def _key_to_offset(key, start=0, end=sys.maxsize):
     hash_ = hashlib.sha1(key.encode("utf-8")).digest()
     offset_from_0 = int(codecs.encode(hash_, "hex"), 16) % (end - start)
     return start + offset_from_0
+
+
+def LockedNamedTemporaryFile(*args, **kwargs):
+    tmpfile = tempfile.NamedTemporaryFile(*args, **kwargs)
+    fcntl.flock(tmpfile.fileno(), fcntl.LOCK_EX)
+
+    def cleanup():
+        fcntl.flock(tmpfile.fileno(), fcntl.LOCK_UN)
+        tmpfile.close()
+
+    return tmpfile, cleanup
 
 
 class ProcessLocalRegistry(object):
