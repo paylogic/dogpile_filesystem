@@ -36,7 +36,24 @@ def test_dogpile_lock_threaded(region):
         mutex.release()
 
 
-def test_dogpile_lock_processes(region):
+def _other_process(
+    backend_name, region_expiration_time, backend_arguments, proc_result
+):
+    import dogpile.cache
+
+    region = dogpile.cache.make_region("test_region")
+    region.configure(
+        backend=backend_name,
+        expiration_time=region_expiration_time,
+        arguments=backend_arguments,
+    )
+    o_mutex = region.backend.get_mutex("asd")
+    proc_result.value = o_mutex.acquire(False)
+
+
+def test_dogpile_lock_processes(
+    region, backend_name, region_expiration_time, backend_arguments
+):
     mutex = region.backend.get_mutex("asd")
 
     mutex.acquire()
@@ -47,13 +64,18 @@ def test_dogpile_lock_processes(region):
     proc_result = multiprocessing.Value("d", 42)
     assert proc_result.value == 42
 
-    def other_process():
-        o_mutex = region.backend.get_mutex("asd")
-        proc_result.value = o_mutex.acquire(False)
-
-    t = multiprocessing.Process(target=other_process)
+    t = multiprocessing.Process(
+        target=_other_process,
+        kwargs={
+            "backend_name": backend_name,
+            "region_expiration_time": region_expiration_time,
+            "backend_arguments": backend_arguments,
+            "proc_result": proc_result,
+        },
+    )
     t.start()
     t.join()
+    t.close()
 
     mutex.release()
     assert proc_result.value == 0
