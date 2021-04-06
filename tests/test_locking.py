@@ -75,7 +75,6 @@ def test_dogpile_lock_processes(
     )
     t.start()
     t.join()
-    t.close()
 
     mutex.release()
     assert proc_result.value == 0
