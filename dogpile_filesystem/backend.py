@@ -6,17 +6,14 @@ Provides backends that deal with local filesystem access.
 
 """
 import collections
-import fcntl
 import hashlib
 import io
 import os
 import pickle
-import tempfile
 import time
 
 from shutil import copyfileobj
 
-import errno
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 
 from . import registry
@@ -76,8 +73,10 @@ class RawFSBackend(CacheBackend):
     @staticmethod
     def key_mangler(key):
         if isinstance(key, bytes):
-            return key
-        return hashlib.sha256(key.encode("utf-8")).hexdigest()
+            key_bytes = key
+        else:
+            key_bytes = key.encode("utf-8")
+        return hashlib.sha256(key_bytes).hexdigest()
 
     def __init__(self, arguments):
         self.base_dir = os.path.abspath(os.path.normpath(arguments["base_dir"]))
