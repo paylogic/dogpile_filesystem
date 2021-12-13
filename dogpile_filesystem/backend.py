@@ -10,7 +10,6 @@ import hashlib
 import io
 import os
 import pickle
-import tempfile
 import time
 
 from shutil import copyfileobj
@@ -21,6 +20,8 @@ from . import registry
 from . import utils
 
 __all__ = ["RawFSBackend", "GenericFSBackend"]
+
+from .utils import LockedNamedTemporaryFile
 
 Metadata = collections.namedtuple(
     "Metadata", ["original_file_offset", "dogpile_metadata"]
@@ -71,7 +72,11 @@ class RawFSBackend(CacheBackend):
 
     @staticmethod
     def key_mangler(key):
-        return hashlib.sha256(key.encode("utf-8")).hexdigest()
+        if isinstance(key, bytes):
+            key_bytes = key
+        else:
+            key_bytes = key.encode("utf-8")
+        return hashlib.sha256(key_bytes).hexdigest()
 
     def __init__(self, arguments):
         self.base_dir = os.path.abspath(os.path.normpath(arguments["base_dir"]))
@@ -79,6 +84,9 @@ class RawFSBackend(CacheBackend):
 
         self.values_dir = os.path.join(self.base_dir, "values")
         utils.ensure_dir(self.values_dir)
+
+        self.temp_dir = os.path.join(self.base_dir, "tmp")
+        utils.ensure_dir(self.temp_dir)
 
         self.dogpile_lock_path = os.path.join(self.base_dir, "dogpile.lock")
         self.rw_lock_path = os.path.join(self.base_dir, "rw.lock")
@@ -147,14 +155,15 @@ class RawFSBackend(CacheBackend):
         else:
             payload, dogpile_metadata = value, None
 
+        tmpfile_cleaner = lambda: None
         original_file_offset = payload.tell()
         if self.file_movable:
             payload_file_path = payload.name
         else:
             payload.seek(0)
             try:
-                with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
-                    copyfileobj(payload, tmpfile, length=1024 * 1024)
+                tmpfile, tmpfile_cleaner = LockedNamedTemporaryFile(delete=False, dir=self.temp_dir)
+                copyfileobj(payload, tmpfile, length=1024 * 1024)
             finally:
                 payload.seek(original_file_offset, 0)
             payload_file_path = tmpfile.name
@@ -162,14 +171,17 @@ class RawFSBackend(CacheBackend):
         metadata = Metadata(
             dogpile_metadata=dogpile_metadata, original_file_offset=original_file_offset
         )
-        with tempfile.NamedTemporaryFile(delete=False) as metadata_file:
-            pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
+        metadata_file, metadata_file_cleaner = LockedNamedTemporaryFile(delete=False, dir=self.temp_dir)
+        pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
 
         with self._get_rw_lock(key):
             os.rename(metadata_file.name, self._file_path_metadata(key))
             os.rename(payload_file_path, self._file_path_payload(key))
             os.utime(self._file_path_metadata(key), (now_timestamp, now_timestamp))
             os.utime(self._file_path_payload(key), (now_timestamp, now_timestamp))
+
+        metadata_file_cleaner()
+        tmpfile_cleaner()
 
     def set_multi(self, mapping):
         for key, value in mapping.items():
@@ -251,6 +263,17 @@ class RawFSBackend(CacheBackend):
             key = keys_by_newest.pop()
             self.attempt_delete_key(key)
 
+        # Cleanup abandoned tmpfiles
+        for file in os.listdir(self.temp_dir):
+            filepath = os.path.join(self.temp_dir, file)
+            lock = registry.locks.get((filepath, 0))
+            if not lock.is_locked():
+                if lock.acquire(blocking=False):
+                    try:
+                        os.unlink(filepath)
+                    finally:
+                        lock.release()
+
 
 class GenericFSBackend(RawFSBackend):
     """A file-backend using files to store keys.
@@ -292,11 +315,14 @@ class GenericFSBackend(RawFSBackend):
         super(GenericFSBackend, self).__init__(arguments)
 
     def set(self, key, value):
-        with tempfile.NamedTemporaryFile(delete=False) as value_file:
+        value_file, cleaner = LockedNamedTemporaryFile(delete=False, dir=self.temp_dir)
+        try:
             pickle.dump(value, value_file, pickle.HIGHEST_PROTOCOL)
             value_file.seek(0)
             value_file.flush()
             super(GenericFSBackend, self).set(key, value_file)
+        finally:
+            cleaner()
 
     def get(self, key):
         value_file = super(GenericFSBackend, self).get(key)

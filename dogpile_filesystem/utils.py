@@ -3,10 +3,16 @@ import errno
 import hashlib
 import os
 import sys
+import tempfile
 import threading
 import warnings
+from contextlib import contextmanager
 
+import fcntl
 from dogpile.util import NameRegistry
+
+from dogpile_filesystem import registry
+from dogpile_filesystem.locking import RangedFileReentrantLock
 
 
 def remove_or_warn(file_path):
@@ -56,6 +62,18 @@ def _key_to_offset(key, start=0, end=sys.maxsize):
     hash_ = hashlib.sha1(key.encode("utf-8")).digest()
     offset_from_0 = int(codecs.encode(hash_, "hex"), 16) % (end - start)
     return start + offset_from_0
+
+
+def LockedNamedTemporaryFile(*args, delete=False, **kwargs):
+    tmpfile = tempfile.NamedTemporaryFile(*args, delete=delete, **kwargs)
+    lock = registry.locks.get((tmpfile.name, 0))
+    lock.acquire()
+
+    def cleanup():
+        lock.release()
+        tmpfile.close()
+
+    return tmpfile, cleanup
 
 
 class ProcessLocalRegistry(object):
