@@ -75,6 +75,8 @@ class RawFSBackend(CacheBackend):
 
     @staticmethod
     def key_mangler(key):
+        if isinstance(key, bytes):
+            return key
         return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
     def __init__(self, arguments):
