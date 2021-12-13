@@ -16,6 +16,7 @@ import time
 
 from shutil import copyfileobj
 
+import errno
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 
 from . import registry
@@ -161,7 +162,6 @@ class RawFSBackend(CacheBackend):
             payload.seek(0)
             try:
                 tmpfile, tmpfile_cleaner = LockedNamedTemporaryFile(delete=False, dir=self.temp_dir)
-                fcntl.flock(tmpfile.fileno(), fcntl.LOCK_EX)  # Need the lock until after os.rename below
                 copyfileobj(payload, tmpfile, length=1024 * 1024)
             finally:
                 payload.seek(original_file_offset, 0)
@@ -171,7 +171,6 @@ class RawFSBackend(CacheBackend):
             dogpile_metadata=dogpile_metadata, original_file_offset=original_file_offset
         )
         metadata_file, metadata_file_cleaner = LockedNamedTemporaryFile(delete=False, dir=self.temp_dir)
-        fcntl.flock(metadata_file.fileno(), fcntl.LOCK_EX)  # Need the lock until after os.rename below
         pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
 
         with self._get_rw_lock(key):
@@ -265,14 +264,14 @@ class RawFSBackend(CacheBackend):
 
         # Cleanup abandoned tmpfiles
         for file in os.listdir(self.temp_dir):
-            try:
-                with open(file, 'rb') as fp:
-                    fcntl.flock(fp.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
-                os.remove(file)
-            except OSError as e:
-                pass  # Active tempfile
-            finally:
-                fcntl.flock(fp.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
+            filepath = os.path.join(self.temp_dir, file)
+            lock = registry.locks.get((filepath, 0))
+            if not lock.is_locked():
+                if lock.acquire(blocking=False):
+                    try:
+                        os.unlink(filepath)
+                    finally:
+                        lock.release()
 
 
 class GenericFSBackend(RawFSBackend):
@@ -315,11 +314,14 @@ class GenericFSBackend(RawFSBackend):
         super(GenericFSBackend, self).__init__(arguments)
 
     def set(self, key, value):
-        with tempfile.NamedTemporaryFile(delete=False, dir=self.temp_dir) as value_file:
+        value_file, cleaner = LockedNamedTemporaryFile(delete=False, dir=self.temp_dir)
+        try:
             pickle.dump(value, value_file, pickle.HIGHEST_PROTOCOL)
             value_file.seek(0)
             value_file.flush()
             super(GenericFSBackend, self).set(key, value_file)
+        finally:
+            cleaner()
 
     def get(self, key):
         value_file = super(GenericFSBackend, self).get(key)

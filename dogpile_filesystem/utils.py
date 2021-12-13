@@ -11,6 +11,9 @@ from contextlib import contextmanager
 import fcntl
 from dogpile.util import NameRegistry
 
+from dogpile_filesystem import registry
+from dogpile_filesystem.locking import RangedFileReentrantLock
+
 
 def remove_or_warn(file_path):
     try:
@@ -61,12 +64,13 @@ def _key_to_offset(key, start=0, end=sys.maxsize):
     return start + offset_from_0
 
 
-def LockedNamedTemporaryFile(*args, **kwargs):
-    tmpfile = tempfile.NamedTemporaryFile(*args, **kwargs)
-    fcntl.flock(tmpfile.fileno(), fcntl.LOCK_EX)
+def LockedNamedTemporaryFile(*args, delete=False, **kwargs):
+    tmpfile = tempfile.NamedTemporaryFile(*args, delete=delete, **kwargs)
+    lock = registry.locks.get((tmpfile.name, 0))
+    lock.acquire()
 
     def cleanup():
-        fcntl.flock(tmpfile.fileno(), fcntl.LOCK_UN)
+        lock.release()
         tmpfile.close()
 
     return tmpfile, cleanup
