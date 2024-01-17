@@ -13,7 +13,7 @@ import pickle
 import tempfile
 import time
 
-from shutil import copyfileobj
+from shutil import copyfileobj, move
 
 from dogpile.cache.api import CacheBackend, NO_VALUE, CachedValue
 
@@ -166,8 +166,8 @@ class RawFSBackend(CacheBackend):
             pickle.dump(metadata, metadata_file, pickle.HIGHEST_PROTOCOL)
 
         with self._get_rw_lock(key):
-            os.rename(metadata_file.name, self._file_path_metadata(key))
-            os.rename(payload_file_path, self._file_path_payload(key))
+            move(metadata_file.name, self._file_path_metadata(key))
+            move(payload_file_path, self._file_path_payload(key))
             os.utime(self._file_path_metadata(key), (now_timestamp, now_timestamp))
             os.utime(self._file_path_payload(key), (now_timestamp, now_timestamp))
 
